@@ -5,9 +5,13 @@
 , stdenv
 , nix
 
-, configdiffNix ? pkgs.scope.cfg.outPath
-, configdiffAttr ? "configdiff"
+  # required configuration
+, configdiffNix
+, configdiffAttr
+, configdiffFlake ? configdiffNix
+, configdiffFlakeAttr ? configdiffAttr
 
+  # optional configuration
 , skipPatterns ? [
     [ "_module" ]
     [ "assertions" ]
@@ -129,9 +133,9 @@ let
       ${ref}.outputs.legacyPackages.${system}.${out};
   '';
   mkFlake = { old, new, oldOutput, newOutput, eval ? null }:
-    buildFlake { configdiff = configdiffNix; inherit old new; } /* nix */ ''
+    buildFlake { configdiff = configdiffFlake; inherit old new; } /* nix */ ''
       {
-        traced = configdiff.packages.${system}.${configdiffAttr}.run {
+        traced = configdiff.packages.${system}.${configdiffFlakeAttr}.run {
           ${setOutputString "old" oldOutput}
           ${setOutputString "new" newOutput}
           ${optionalString (eval != null) /* nix */ "eval = _: c: c.${eval};"}
