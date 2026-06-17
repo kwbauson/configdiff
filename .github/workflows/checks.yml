@@ -5,8 +5,10 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
+        compare:
+          - 'nixosConfigurations.{minimal,postgresql}'
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v5
-    - uses: cachix/install-nix-action@v31
-    - run: nix build
+      - uses: actions/checkout@v5
+      - uses: cachix/install-nix-action@v31
+      - run: nix run . path:./test#${{ matrix.compare }}
