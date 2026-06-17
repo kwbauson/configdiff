@@ -88,6 +88,9 @@ def select_lines(*files) -> Generator[tuple[str, Any]]:
                 die("reading from invalid fileobj")
 
 
+show_spinner = sys.stdout.isatty()
+
+
 def run_nix(*cmdline):
     spinner_chars = "/-\\"
     spinner_idx = 0
@@ -99,8 +102,9 @@ def run_nix(*cmdline):
                 yield line
             elif line.startswith(args.marker):
                 yield line.removeprefix(args.marker)
-                sys.stderr.write(spinner_chars[spinner_idx] + "\r")
-                spinner_idx = (spinner_idx + 1) % len(spinner_chars)
+                if show_spinner:
+                    sys.stderr.write(spinner_chars[spinner_idx] + "\r")
+                    spinner_idx = (spinner_idx + 1) % len(spinner_chars)
             else:
                 sys.stderr.write(line)
     sys.stderr.write("\r\033[1K")

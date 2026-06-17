@@ -6,7 +6,11 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
         compare:
-          - 'nixosConfigurations.{minimal,postgresql}'
+          - 'nixosConfigurations.{base,postgresql}'
+          - 'nixosConfigurations.{base,home-manager}'
+          - 'homeConfigurations.{base,git}'
+          - 'darwinConfigurations.{base,dnsmasq}'
+          - 'nixvimConfigurations.{base,ty}'
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
