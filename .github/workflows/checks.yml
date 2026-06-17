@@ -1,7 +1,7 @@
 name: checks
 on: { workflow_dispatch, push }
 jobs:
-  checks:
+  run:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
@@ -16,3 +16,9 @@ jobs:
       - uses: actions/checkout@v5
       - uses: cachix/install-nix-action@v31
       - run: nix run . path:./test#${{ matrix.compare }}
+  run-github:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: cachix/install-nix-action@v31
+      - run: nix run github:kwbauson/configdiff github:kwbauson/configdiff?dir=test#nixosConfigurations.{base,postgresql}
