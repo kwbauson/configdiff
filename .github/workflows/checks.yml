@@ -27,6 +27,7 @@ jobs:
           - 'darwinConfigurations.{base,dnsmasq}'
           - 'nixvimConfigurations.{base,ty}'
           - "nixosConfigurations.base --new-module '{ services.postgresql.enable = true; }'"
+          - "nixosConfigurations.base -- --override-input new/nixpkgs nixpkgs/nixos-unstable-small"
         include:
           - os: macos-latest
             compare: 'nixosConfigurations.{base,postgresql}'
