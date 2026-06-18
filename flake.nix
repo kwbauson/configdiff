@@ -10,7 +10,7 @@
       packages = nixpkgs.lib.genAttrs nixpkgs.lib.systems.flakeExposed (system: {
         default = nixpkgs.legacyPackages.${system}.callPackage ./package.nix {
           configdiffNix = self.outPath;
-          configdiffAttr = "default";
+          configdiffNixAttr = "default";
           # set configdiffFlake and configdiffFlakeAttr if they're different from above
         };
       });
