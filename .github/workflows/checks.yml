@@ -1,6 +1,7 @@
 name: checks
 on: { workflow_dispatch, push }
 env:
+  PAGER: cat
   FORCE_COLOR: 1
   RUN: nix --quiet run . -- --quiet
 jobs:
