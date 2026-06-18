@@ -28,7 +28,7 @@ let
     any isString concatMapStringsSep length foldl' fix zipLists toJSON init
     elem isAttrs mapAttrs isList imap optionalAttrs concatStringsSep
     hasAttrByPath getAttrFromPath setAttrByPath splitString optionalString flip
-    seq trim concatMapAttrsStringSep id isFunction
+    seq trim concatMapAttrsStringSep id isFunction readFile hasInfix
     ;
   inherit (lib.generators) toPretty;
   inherit (lib.strings) escapeNixIdentifier;
@@ -130,6 +130,15 @@ let
     else if cfg.class or null == "homeManager" then config.home.activationPackage.outPath
     else if hasAttrByPath [ "meta" "nixvimInfo" ] cfg.options then config.build.package.outPath
     else throw "unknown configuration type, please pass `--eval PATH`";
+  clearSubmodules = ref:
+    if hasInfix "self.submodules = true;" (readFile (ref + "/flake.nix"))
+    then
+      runCommandLocal "without-submodules" { } ''
+        cp -r ${ref} $out
+        chmod -R +w $out
+        sed -Ei '/^\s*(inputs\.)?self\.submodules = true;$/d' $out/flake.nix
+      ''
+    else ref;
   mkFlake =
     { configdiff
     , old
@@ -149,7 +158,7 @@ let
       optionalRunArg = name: f: optionalString (args.${name} or null != null)
         "${name} = ${if isFunction f then f args.${name} else f};";
     in
-    buildFlake { inherit configdiff old new; } /* nix */ ''
+    buildFlake (mapAttrs (_: clearSubmodules) { inherit configdiff old new; }) /* nix */ ''
       {
         traced = configdiff.packages.${system}.${configdiffFlakeAttr}.run {
           ${setOutputString "old" oldOutput}
@@ -170,5 +179,5 @@ in
     doCheck = false;
     libraries = ps: [ ps.termcolor ];
   }
-  (lib.replaceString internalMarker extraParser (lib.readFile ./main.py))
+  (lib.replaceString internalMarker extraParser (readFile ./main.py))
 ).overrideAttrs { passthru = { inherit mkFlake run; }; }
