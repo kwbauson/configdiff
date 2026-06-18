@@ -1,7 +1,8 @@
 name: checks
 on: { workflow_dispatch, push }
 env:
-  RUN: FORCE_COLOR=1 nix --quiet run . -- --quiet
+  FORCE_COLOR: 1
+  RUN: nix --quiet run . -- --quiet
 jobs:
   run:
     runs-on: ubuntu-latest
