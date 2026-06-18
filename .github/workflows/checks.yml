@@ -21,19 +21,21 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: cachix/install-nix-action@v31
-      - run: nix run . .?dir=test#${{ matrix.compare }}
+      - run: nix run . -- --quiet .?dir=test#${{ matrix.compare }}
   run-github:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - uses: cachix/install-nix-action@v31
-      - run: nix run github:kwbauson/configdiff github:kwbauson/configdiff?dir=test#nixosConfigurations.{base,postgresql}
-  run-github-overried:
+      - run: nix run github:kwbauson/configdiff -- --quiet github:kwbauson/configdiff?dir=test#nixosConfigurations.{base,postgresql}
+  run-github-override:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - uses: cachix/install-nix-action@v31
       - run: |
-          nix run github:kwbauson/configdiff -- \
+          nix run github:kwbauson/configdiff -- --quiet \
               github:kwbauson/configdiff?dir=test#nixosConfigurations.base{,} -- \
               --override-input old/nixpkgs nixpkgs/nixos-25.11 --override-input new/nixpkgs nixpkgs/nixos-26.05
+
+# TODO test the actual output
