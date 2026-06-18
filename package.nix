@@ -40,6 +40,7 @@ let
   extraParser = /* python */ ''
     internal["self_nix"] = "${configdiffNix}"
     internal["self_nix_attr"] = "${configdiffNixAttr}"
+    internal["self_flake"] = "${configdiffFlake}"
     internal["marker"] = "${traceMarker}"
   '';
   patched-modules-nix = runCommandLocal "patched-modules.nix" { } ''
@@ -130,7 +131,8 @@ let
     else if hasAttrByPath [ "meta" "nixvimInfo" ] cfg.options then config.build.package.outPath
     else throw "unknown configuration type, please pass `--eval PATH`";
   mkFlake =
-    { old
+    { configdiff
+    , old
     , new
     , oldOutput
     , newOutput
@@ -147,7 +149,7 @@ let
       optionalRunArg = name: f: optionalString (args.${name} or null != null)
         "${name} = ${if isFunction f then f args.${name} else f};";
     in
-    buildFlake { configdiff = configdiffFlake; inherit old new; } /* nix */ ''
+    buildFlake { inherit configdiff old new; } /* nix */ ''
       {
         traced = configdiff.packages.${system}.${configdiffFlakeAttr}.run {
           ${setOutputString "old" oldOutput}

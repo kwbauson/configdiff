@@ -193,6 +193,9 @@ trace_lines = []
 if args.use_dump:
     trace_lines = open(args.use_dump)
 else:
+    configdiff_flake = get_flake_path(internal["self_flake"])
+    if args.verbose:
+        print("configdiff flake:", configdiff_flake)
     old_flake = get_flake_path(args.old.split("#")[0])
     if args.verbose:
         print("old flake:", old_flake)
@@ -203,6 +206,7 @@ else:
         "build",
         ["--file", internal["self_nix"], f"{internal['self_nix_attr']}.mkFlake"],
         ["--no-link", "--print-out-paths"] if not args.build_trace_flake else [],
+        ["--arg", "configdiff", configdiff_flake],
         ["--arg", "old", old_flake],
         ["--arg", "new", new_flake],
         ["--argstr", "oldOutput", args.old.split("#")[1]],
