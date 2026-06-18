@@ -1,12 +1,20 @@
 name: checks
 on: { workflow_dispatch, push }
+env:
+  RUN: FORCE_COLOR=1 nix --quiet run . -- --quiet
 jobs:
   run:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - uses: cachix/install-nix-action@v31
-      - run: nix run . .#nixosConfigurations.{base,hello}
+      - run: $RUN .#nixosConfigurations.{base,hello}
+  run-github:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: cachix/install-nix-action@v31
+      - run: nix run github:kwbauson/configdiff github:kwbauson/configdiff?dir=test#nixosConfigurations.{base,postgresql}
   run-test:
     strategy:
       matrix:
@@ -21,21 +29,14 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: cachix/install-nix-action@v31
-      - run: nix run . -- --quiet .?dir=test#${{ matrix.compare }}
-  run-github:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: cachix/install-nix-action@v31
-      - run: nix run github:kwbauson/configdiff -- --quiet github:kwbauson/configdiff?dir=test#nixosConfigurations.{base,postgresql}
-  run-github-override:
+      - run: $RUN .?dir=test#${{ matrix.compare }}
+  run-override:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - uses: cachix/install-nix-action@v31
       - run: |
-          nix run github:kwbauson/configdiff -- --quiet \
-              github:kwbauson/configdiff?dir=test#nixosConfigurations.base{,} -- \
-              --override-input old/nixpkgs nixpkgs/nixos-25.11 --override-input new/nixpkgs nixpkgs/nixos-26.05
+          $RUN .?dir=test#nixosConfigurations.base{,} -- \
+            --override-input old/nixpkgs nixpkgs/nixos-25.11 --override-input new/nixpkgs nixpkgs/nixos-26.05
 
 # TODO test the actual output
