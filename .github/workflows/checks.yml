@@ -35,5 +35,5 @@ jobs:
       - uses: cachix/install-nix-action@v31
       - run: |
           nix run github:kwbauson/configdiff -- \
-              github:kwbauson/configdiff?dir=test#nixosConfigurations.{base,base} -- \
+              github:kwbauson/configdiff?dir=test#nixosConfigurations.base{,} -- \
               --override-input old/nixpkgs nixpkgs/nixos-25.11 --override-input new/nixpkgs nixpkgs/nixos-26.05

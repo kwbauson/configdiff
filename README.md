@@ -60,7 +60,7 @@ inputs in the `old` and `new` flakes:
 ```bash
 # what changed in the minimal iso between major releases
 nix run github:kwbauson/configdiff -- \
-    github:kwbauson/configdiff?dir=test#nixosConfigurations.{base,base} -- \
+    github:kwbauson/configdiff?dir=test#nixosConfigurations.base{,} -- \
     --override-input old/nixpkgs nixpkgs/nixos-25.11 --override-input new/nixpkgs nixpkgs/nixos-26.05
 ```
 
