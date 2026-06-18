@@ -136,6 +136,7 @@ let
       runCommandLocal "without-submodules" { } ''
         cp -r ${ref} $out
         chmod -R +w $out
+        # this is safe because we're only using flakes already in the store
         sed -Ei '/^\s*(inputs\.)?self\.submodules = true;$/d' $out/flake.nix
       ''
     else ref;

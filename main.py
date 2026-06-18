@@ -152,12 +152,14 @@ def run_nix(*cmdline):
     ) as proc:
         for line, f in select_lines(proc.stdout, proc.stderr):
             if f == proc.stdout:
+                if args.verbose:
+                    sys.stdout.write(line)
                 yield line
             elif line.startswith(internal["marker"]):
-                yield line.removeprefix(internal["marker"])
                 if show_spinner:
                     sys.stderr.write(spinner_chars[spinner_idx] + "\r")
                     spinner_idx = (spinner_idx + 1) % len(spinner_chars)
+                yield line.removeprefix(internal["marker"])
             else:
                 sys.stderr.write(line)
     if show_spinner:
@@ -193,30 +195,19 @@ trace_lines = []
 if args.use_dump:
     trace_lines = open(args.use_dump)
 else:
-    configdiff_flake = get_flake_path(internal["self_flake"])
-    if args.verbose:
-        print("configdiff flake:", configdiff_flake)
-    old_flake = get_flake_path(args.old.split("#")[0])
-    if args.verbose:
-        print("old flake:", old_flake)
-    new_flake = get_flake_path(args.new.split("#")[0])
-    if args.verbose:
-        print("new flake:", new_flake)
     trace_flake = run_nix_str(
         "build",
         ["--file", internal["self_nix"], f"{internal['self_nix_attr']}.mkFlake"],
         ["--no-link", "--print-out-paths"] if not args.build_trace_flake else [],
-        ["--arg", "configdiff", configdiff_flake],
-        ["--arg", "old", old_flake],
-        ["--arg", "new", new_flake],
+        ["--arg", "configdiff", get_flake_path(internal["self_flake"])],
+        ["--arg", "old", get_flake_path(args.old.split("#")[0])],
+        ["--arg", "new", get_flake_path(args.new.split("#")[0])],
         ["--argstr", "oldOutput", args.old.split("#")[1]],
         ["--argstr", "newOutput", args.new.split("#")[1]],
         optionalArgStr("eval"),
         optionalArgStr("old_module"),
         optionalArgStr("new_module"),
     ).strip()
-    if args.verbose:
-        print("trace flake:", trace_flake)
     if args.build_trace_flake:
         exit()
     trace_lines = run_nix("eval", "--raw", f"{trace_flake}#traced", args.nix_args)
