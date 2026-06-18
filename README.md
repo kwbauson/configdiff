@@ -26,8 +26,9 @@ configurations, so it could take awhile (on my machine when I have all of the
 flake inputs fetched already, it takes ~20 seconds).
 
 There are a variety of test configurations you can try out in
-`./test/flake.nix`. For example, to see what gets changed when you enable
-postgreql on the nixos minimal iso:
+[test/flake.nix](test/flake.nix) which get ci tested in
+[checks.yml](.github/workflows/checks.yml). For example, to see what gets
+changed when you enable postgreql on the nixos minimal iso:
 
 ```bash
 nix run github:kwbauson/configdiff github:kwbauson/configdiff?dir=test#nixosConfigurations.{base,postgresql}
@@ -35,6 +36,23 @@ nix run github:kwbauson/configdiff github:kwbauson/configdiff?dir=test#nixosConf
 
 <img width="1249" height="439" alt="image" src="https://github.com/user-attachments/assets/a3782850-2482-44ea-a0fd-17f44ff02702" />
 
+Arguments after `--` are passed directly to `nix`, allowing you to override
+inputs in the `old` and `new` flakes:
+
+```bash
+# what changed in the minimal iso between major releases
+nix run github:kwbauson/configdiff -- \
+    github:kwbauson/configdiff?dir=test#nixosConfigurations.base{,} -- \
+    --override-input old/nixpkgs nixpkgs/nixos-25.11 --override-input new/nixpkgs nixpkgs/nixos-26.05
+```
+
+You can pass the text of a module that gets injected into the configuration
+with `--new-module` or `--old-module`. When either of those are passed, new
+defaults to old, so you only have to pass one flake:
+
+```bash
+nix run github:kwbauson/configdiff -- github:kwbauson/configdiff?dir=test#nixosConfigurations.base --new-module '{ services.postgresql.enable = true; }'
+```
 
 By default, the hash parts of nix store paths aren't considered as potential
 changes, since showing them can be pretty noisy and often isn't very
@@ -53,16 +71,6 @@ evaluation of the system. For example, if nixos wasn't built in, you could pass
 `outPath` part is important. `--eval` can also be used to "focus" the diff,
 e.g. to see what's adding to `PATH` you could pass `--eval
 system.path.outPath`.
-
-Arguments after `--` are passed directly to `nix`, allowing you to override
-inputs in the `old` and `new` flakes:
-
-```bash
-# what changed in the minimal iso between major releases
-nix run github:kwbauson/configdiff -- \
-    github:kwbauson/configdiff?dir=test#nixosConfigurations.base{,} -- \
-    --override-input old/nixpkgs nixpkgs/nixos-25.11 --override-input new/nixpkgs nixpkgs/nixos-26.05
-```
 
 ## Why this new thing
 
