@@ -21,6 +21,7 @@ diff how nixpkgs lib.evalModules gets used between configurations in flakes
 examples:
     configdiff {new,old}#nixosConfigurations.machine
     configdiff flake#nixosConfigurations.{machine,other}
+    configdiff ~/flake-repo{?ref=HEAD,}#nixosConfigurations.machine
     configdiff flake#nixosConfigurations.machine -- --override-input new/nixpkgs nixpkgs/nixos-unstable-small
     configdiff flake#nixosConfigurations.machine --new-module '{ services.postgresql.enable = true; }'
     configdiff flake#darwinConfigurations.machine --new-module '{ services.dnsmasq.enable = true; }'

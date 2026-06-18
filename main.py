@@ -20,6 +20,7 @@ diff how nixpkgs lib.evalModules gets used between configurations in flakes
 examples:
     %(prog)s {new,old}#nixosConfigurations.machine
     %(prog)s flake#nixosConfigurations.{machine,other}
+    %(prog)s ~/flake-repo{?ref=HEAD,}#nixosConfigurations.machine
     %(prog)s flake#nixosConfigurations.machine -- --override-input new/nixpkgs nixpkgs/nixos-unstable-small
     %(prog)s flake#nixosConfigurations.machine --new-module '{ services.postgresql.enable = true; }'
     %(prog)s flake#darwinConfigurations.machine --new-module '{ services.dnsmasq.enable = true; }'
