@@ -7,9 +7,9 @@
 
   # required configuration
 , configdiffNix
-, configdiffAttr
+, configdiffNixAttr
 , configdiffFlake ? configdiffNix
-, configdiffFlakeAttr ? configdiffAttr
+, configdiffFlakeAttr ? configdiffNixAttr
 
   # optional configuration
 , skipPatterns ? [
@@ -39,7 +39,7 @@ let
   extraParser = /* python */ ''
     internal_help = "internal, do not use"
     parser.add_argument("--self-nix", default="${configdiffNix}", help=internal_help)
-    parser.add_argument("--self-attr", default="${configdiffAttr}", help=internal_help)
+    parser.add_argument("--self-attr", default="${configdiffNixAttr}", help=internal_help)
     parser.add_argument("--marker", default="${traceMarker}", help=internal_help)
   '';
   patched-modules-nix = runCommandLocal "patched-modules.nix" { } ''

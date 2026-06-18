@@ -11,6 +11,7 @@
         default = nixpkgs.legacyPackages.${system}.callPackage ./package.nix {
           configdiffNix = self.outPath;
           configdiffAttr = "default";
+          # set configdiffFlake and configdiffFlakeAttr if they're different from above
         };
       });
 
