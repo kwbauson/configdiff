@@ -54,7 +54,7 @@ def die(message, exitCode=1):
     exit(exitCode)
 
 
-args = parser.parse_args()
+args, extra_nix_eval_args = parser.parse_known_args()
 
 if not ((args.new and args.old) or args.use_dump):
     parser.print_help()
@@ -156,7 +156,9 @@ else:
         print("trace flake:", trace_flake)
     if args.build_trace_flake:
         exit()
-    trace_lines = run_nix("nix", "eval", "--raw", f"{trace_flake}#traced")
+    trace_lines = run_nix(
+        "nix", "eval", "--raw", f"{trace_flake}#traced", extra_nix_eval_args
+    )
 
 if args.dump:
     with open(args.dump, "w") as out:

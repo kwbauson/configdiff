@@ -54,6 +54,16 @@ evaluation of the system. For example, if nixos wasn't built in, you could pass
 e.g. to see what's adding to `PATH` you could pass `--eval
 system.path.outPath`.
 
+Arguments after `--` are passed directly to `nix`, allowing you to override
+inputs in the `old` and `new` flakes:
+
+```bash
+# what changed in the minimal iso between major releases
+nix run github:kwbauson/configdiff -- \
+    github:kwbauson/configdiff?dir=test#nixosConfigurations.{base,base} -- \
+    --override-input old/nixpkgs nixpkgs/nixos-25.11 --override-input new/nixpkgs nixpkgs/nixos-26.05
+```
+
 ## Why this new thing
 
 When I saw
