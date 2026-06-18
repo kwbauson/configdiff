@@ -26,7 +26,7 @@ jobs:
           - 'homeConfigurations.{base,git}'
           - 'darwinConfigurations.{base,dnsmasq}'
           - 'nixvimConfigurations.{base,ty}'
-          - "nixvimConfigurations.base --new-module '{ services.postgresql.enable = true; }'"
+          - "nixosConfigurations.base --new-module '{ services.postgresql.enable = true; }'"
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
