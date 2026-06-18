@@ -19,7 +19,7 @@ jobs:
   run-test:
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest]
         compare:
           - 'nixosConfigurations.{base,postgresql}'
           - 'nixosConfigurations.{base,home-manager}'
@@ -27,6 +27,11 @@ jobs:
           - 'darwinConfigurations.{base,dnsmasq}'
           - 'nixvimConfigurations.{base,ty}'
           - "nixosConfigurations.base --new-module '{ services.postgresql.enable = true; }'"
+        include:
+          - os: macos-latest
+            compare: 'nixosConfigurations.{base,postgresql}'
+          - os: macos-latest
+            compare: 'darwinConfigurations.{base,dnsmasq}'
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
