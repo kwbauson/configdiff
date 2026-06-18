@@ -3,14 +3,13 @@ on: { workflow_dispatch, push }
 env:
   PAGER: cat
   FORCE_COLOR: 1
-  RUN: nix --quiet run . -- --quiet
 jobs:
   run:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - uses: cachix/install-nix-action@v31
-      - run: $RUN .#nixosConfigurations.{base,hello}
+      - run: nix run .#nixosConfigurations.{base,hello}
   run-github:
     runs-on: ubuntu-latest
     steps:
@@ -31,14 +30,15 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: cachix/install-nix-action@v31
-      - run: $RUN .?dir=test#${{ matrix.compare }}
+      - run: nix run . -- --dump dump.txt .?dir=test#${{ matrix.compare }}
+      - run: nix run . -- --use-dump dump.txt
   run-override:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - uses: cachix/install-nix-action@v31
       - run: |
-          $RUN .?dir=test#nixosConfigurations.base{,} -- \
+          nix --quiet run . -- --quiet .?dir=test#nixosConfigurations.base{,} -- \
             --override-input old/nixpkgs nixpkgs/nixos-25.11 --override-input new/nixpkgs nixpkgs/nixos-26.05
 
 # TODO test the actual output
