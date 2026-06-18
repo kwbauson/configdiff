@@ -12,6 +12,22 @@ version of that project, and only the diff functionality.
 
 ## Usage
 
+```
+$ configdiff --usage
+usage: configdiff [OPTIONS] ARGS [-- NIX_ARGS]
+
+diff how nixpkgs lib.evalModules gets used between configurations in flakes
+
+examples:
+    configdiff {new,old}#nixosConfigurations.machine
+    configdiff flake#nixosConfigurations.{machine,other}
+    configdiff flake#nixosConfigurations.machine -- --override-input new/nixpkgs nixpkgs/nixos-unstable-small
+    configdiff flake#nixosConfigurations.machine --new-module '{ services.postgresql.enable = true; }'
+    configdiff flake#darwinConfigurations.machine --new-module '{ services.dnsmasq.enable = true; }'
+    configdiff flake#homeConfigurations.user --new-module '{ programs.git.enable = true; }'
+    configdiff flake#nixvimConfiguration --new-module '{ lsp.servers.ty.enable = true; }'
+```
+
 As long as you're using flakes, you can run this directly on your
 configurations:
 
@@ -51,7 +67,8 @@ with `--new-module` or `--old-module`. When either of those are passed, new
 defaults to old, so you only have to pass one flake:
 
 ```bash
-nix run github:kwbauson/configdiff -- github:kwbauson/configdiff?dir=test#nixosConfigurations.base --new-module '{ services.postgresql.enable = true; }'
+nix run github:kwbauson/configdiff -- \
+    github:kwbauson/configdiff?dir=test#nixosConfigurations.base --new-module '{ services.postgresql.enable = true; }'
 ```
 
 By default, the hash parts of nix store paths aren't considered as potential
@@ -60,7 +77,8 @@ informative. To include those hashes in the diff, you can pass `-i` or
 `--include-hashes`:
 
 ```bash
-nix run github:kwbauson/configdiff -- -i github:kwbauson/configdiff?dir=test#nixosConfigurations.{base,postgresql}
+nix run github:kwbauson/configdiff -- \
+    -i github:kwbauson/configdiff?dir=test#nixosConfigurations.{base,postgresql}
 ```
 
 By default `configdiff` can handle nixos, home-manager, nix-darwin, and nixvim
