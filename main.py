@@ -40,6 +40,11 @@ parser.add_argument(
     action="store_true",
     help="only build the flake used to generate traces",
 )
+parser.add_argument(
+    "--verbose",
+    action="store_true",
+    help="print more stuff as it happens",
+)
 
 # NIX_EXTRA_PARSER
 
@@ -94,8 +99,11 @@ show_spinner = sys.stdout.isatty()
 def run_nix(*cmdline):
     spinner_chars = "/-\\"
     spinner_idx = 0
+    run_args = flatten(cmdline)
+    if args.verbose:
+        print("++", " ".join(run_args))
     with subprocess.Popen(
-        flatten(cmdline), text=True, stderr=subprocess.PIPE, stdout=subprocess.PIPE
+        run_args, text=True, stderr=subprocess.PIPE, stdout=subprocess.PIPE
     ) as proc:
         for line, f in select_lines(proc.stdout, proc.stderr):
             if f == proc.stdout:
@@ -116,8 +124,12 @@ def run_nix_str(*cmdline):
     return "".join(run_nix(*cmdline))
 
 
-def get_flake_path(path):
-    return json.loads(run_nix_str("nix", "flake", "metadata", "--json", path))["path"]
+def get_flake_path(ref):
+    data = json.loads(run_nix_str("nix", "flake", "metadata", "--json", ref))
+    if "dir" in data["resolved"]:
+        return os.path.join(data["path"], data["resolved"]["dir"])
+    else:
+        return data["path"]
 
 
 trace_lines = []
@@ -126,8 +138,12 @@ if args.use_dump:
     trace_lines = open(args.use_dump)
 else:
     old_flake = get_flake_path(args.old.split("#")[0])
+    if args.verbose:
+        print("old flake:", old_flake)
     new_flake = get_flake_path(args.new.split("#")[0])
-    traced_flake = run_nix_str(
+    if args.verbose:
+        print("new flake:", new_flake)
+    trace_flake = run_nix_str(
         ["nix", "build", "--file", args.self_nix, f"{args.self_attr}.mkFlake"],
         ["--no-link", "--print-out-paths"] if not args.build_trace_flake else [],
         ["--arg", "old", old_flake],
@@ -136,9 +152,11 @@ else:
         ["--argstr", "newOutput", args.new.split("#")[1]],
         ["--argstr", "eval", args.eval] if args.eval else [],
     ).strip()
+    if args.verbose:
+        print("trace flake:", trace_flake)
     if args.build_trace_flake:
         exit()
-    trace_lines = run_nix("nix", "eval", "--raw", f"{traced_flake}#traced")
+    trace_lines = run_nix("nix", "eval", "--raw", f"{trace_flake}#traced")
 
 if args.dump:
     with open(args.dump, "w") as out:
