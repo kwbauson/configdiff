@@ -77,15 +77,17 @@ parser.add_argument(
 )
 parser.add_argument("--usage", action="store_true", help="print usage section of help")
 
-# NIX_EXTRA_PARSER
+args = parser.parse_args()
+
+internal = {}
+
+# NIX_INTERNAL
 
 
 def die(message, exitCode=1):
     print(f"{colored('error:', 'red', attrs=['bold']):} {message}")
     exit(exitCode)
 
-
-args = parser.parse_args()
 
 if args.usage:
     print(parser.format_usage(), end="")
@@ -151,8 +153,8 @@ def run_nix(*cmdline):
         for line, f in select_lines(proc.stdout, proc.stderr):
             if f == proc.stdout:
                 yield line
-            elif line.startswith(args.marker):
-                yield line.removeprefix(args.marker)
+            elif line.startswith(internal["marker"]):
+                yield line.removeprefix(internal["marker"])
                 if show_spinner:
                     sys.stderr.write(spinner_chars[spinner_idx] + "\r")
                     spinner_idx = (spinner_idx + 1) % len(spinner_chars)
@@ -198,7 +200,8 @@ else:
     if args.verbose:
         print("new flake:", new_flake)
     trace_flake = run_nix_str(
-        ["build", "--file", args.self_nix, f"{args.self_attr}.mkFlake"],
+        "build",
+        ["--file", internal["self_nix"], f"{internal['self_nix_attr']}.mkFlake"],
         ["--no-link", "--print-out-paths"] if not args.build_trace_flake else [],
         ["--arg", "old", old_flake],
         ["--arg", "new", new_flake],

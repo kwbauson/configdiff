@@ -36,11 +36,11 @@ let
 
   marker = "TRACE_CONFIG";
   traceMarker = "trace: ${marker}";
+  internalMarker = "# NIX_INTERNAL";
   extraParser = /* python */ ''
-    internal_help = "internal, do not use"
-    parser.add_argument("--self-nix", default="${configdiffNix}", help=internal_help)
-    parser.add_argument("--self-attr", default="${configdiffNixAttr}", help=internal_help)
-    parser.add_argument("--marker", default="${traceMarker}", help=internal_help)
+    internal["self_nix"] = "${configdiffNix}"
+    internal["self_nix_attr"] = "${configdiffNixAttr}"
+    internal["marker"] = "${traceMarker}"
   '';
   patched-modules-nix = runCommandLocal "patched-modules.nix" { } ''
     cp ${pkgs.path}/lib/modules.nix $out
@@ -168,5 +168,5 @@ in
     doCheck = false;
     libraries = ps: [ ps.termcolor ];
   }
-  (lib.replaceString "# NIX_EXTRA_PARSER" extraParser (lib.readFile ./main.py))
+  (lib.replaceString internalMarker extraParser (lib.readFile ./main.py))
 ).overrideAttrs { passthru = { inherit mkFlake run; }; }
