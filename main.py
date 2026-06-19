@@ -52,12 +52,6 @@ parser.add_argument(
     "--eval",
     help="nix path in config to evaluate for trace, e.g. system.build.toplevel.outPath",
 )
-parser.add_argument(
-    "nix_args",
-    nargs="*",
-    default=[],
-    help="args after -- that are passed through to nix",
-)
 parser.add_argument("--dump", help="dump nix output to a file instead of diffing")
 parser.add_argument("--use-dump", help="use previously dumped output")
 parser.add_argument(
@@ -77,10 +71,7 @@ parser.add_argument(
 )
 parser.add_argument("--usage", action="store_true", help="print usage section of help")
 
-args = parser.parse_args()
-
 internal = {}
-
 # NIX_INTERNAL
 
 
@@ -89,17 +80,22 @@ def die(message, exitCode=1):
     exit(exitCode)
 
 
+if "--" in sys.argv:
+    i = sys.argv.index("--")
+    nix_args = sys.argv[i + 1 :]
+    del sys.argv[i:]
+else:
+    nix_args = []
+
+args = parser.parse_args()
+
 if args.usage:
     print(parser.format_usage(), end="")
     exit()
 
-if (
-    (args.old_module or args.new_module) and not args.new
-) or "--override-input" in args.nix_args:
-    args.new = args.old
-# oof this is hacky
-if args.new == "--override-input":
-    args.nix_args.insert(0, args.new)
+if not args.new and (
+    args.old_module or args.new_module or "--override-input" in nix_args
+):
     args.new = args.old
 
 if not ((args.new and args.old) or args.use_dump):
@@ -210,7 +206,7 @@ else:
     ).strip()
     if args.build_trace_flake:
         exit()
-    trace_lines = run_nix("eval", "--raw", f"{trace_flake}#traced", args.nix_args)
+    trace_lines = run_nix("eval", "--raw", f"{trace_flake}#traced", nix_args)
 
 if args.dump:
     with open(args.dump, "w") as out:
