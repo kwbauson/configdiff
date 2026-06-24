@@ -16,7 +16,7 @@
       nixosConfigurations =
         let
           baseModule = { modulesPath, ... }: {
-            imports = [ "${modulesPath}/installer/cd-dvd/installation-cd-minimal.nix" ];
+            imports = [ ./nixos/configuration.nix ];
             nixpkgs.pkgs = nixpkgs.legacyPackages.x86_64-linux;
           };
         in
@@ -46,11 +46,7 @@
       homeConfigurations =
         let
           pkgs = nixpkgs.legacyPackages.x86_64-linux;
-          baseModule.home = {
-            stateVersion = "26.11";
-            username = "foo";
-            homeDirectory = "/home/foo";
-          };
+          baseModule = ./home-manager/home.nix;
         in
         {
           base = home-manager.lib.homeManagerConfiguration {
@@ -69,7 +65,7 @@
       darwinConfigurations =
         let
           baseModule = {
-            system.stateVersion = 7;
+            import = [ ./nix-darwin/configuration.nix ];
             nixpkgs.pkgs = nixpkgs.legacyPackages.aarch64-darwin;
           };
         in
