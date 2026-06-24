@@ -65,7 +65,7 @@
       darwinConfigurations =
         let
           baseModule = {
-            import = [ ./nix-darwin/configuration.nix ];
+            imports = [ ./nix-darwin/configuration.nix ];
             nixpkgs.pkgs = nixpkgs.legacyPackages.aarch64-darwin;
           };
         in
