@@ -258,22 +258,22 @@ else:
                 "could not infer configuration type from filename, please specify with --type"
             )
 
-        def run(label, path):
+        def run(label):
+            include = getattr(args, f"{label}_include", None)
             return run_nix(
                 ["--eval", "--raw", internal["self_nix"]],
                 ["--attr", f"{internal['self_nix_attr']}.runImpure"],
+                ["--include", include] if include else [],
                 ["--argstr", "type", args.type],
                 ["--argstr", "label", label],
-                ["--arg", "path", path],
+                ["--arg", "path", getattr(args, label)],
                 optionalArg("eval", isStr=True),
                 optionalArg("old_module"),
                 optionalArg("new_module"),
                 nix="nix-instantiate",
             )
 
-        old_trace_lines = run("old", args.old)
-        new_trace_lines = run("new", args.new)
-        trace_lines = itertools.chain(old_trace_lines, new_trace_lines)
+        trace_lines = itertools.chain(run("old"), run("new"))
 
 
 if args.dump:

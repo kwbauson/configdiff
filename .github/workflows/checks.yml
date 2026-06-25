@@ -6,20 +6,20 @@ jobs:
       matrix:
         include:
           - flake: nixosConfigurations.{base,postgresql}
-            expect: systemd.services.postgresql.enable
+            expect: systemd.services.postgresql.enable = true
           - flake: nixosConfigurations.{base,home-manager}
             expect: home-manager.users.foo.home.activationPackage
           - flake: homeConfigurations.{base,git}
-            expect: xdg.configFile."git/config".enable
+            expect: xdg.configFile."git/config".enable = true
           - flake: darwinConfigurations.{base,dnsmasq}
             expect: launchd.daemons.dnsmasq.serviceConfig.Label
           - flake: nixvimConfigurations.{base,ty}
             expect: vim.lsp.enable("ty")
 
           - flake: nixosConfigurations.base --new-module '{ programs.zsh.enable = true; }'
-            expect: environment.etc.zinputrc.enable
+            expect: environment.etc.zinputrc.enable = true
           - flake: nixosConfigurations.base -- --override-input new/nixpkgs nixpkgs/nixos-unstable-small
-            expect: system.nixos.release
+            expect: system.nixos.release = "26.05
 
           - flake: nixosConfigurations.{base,postgresql}
             expect: systemd.services.postgresql.enable
@@ -46,6 +46,7 @@ jobs:
         run: |
           nix build .#ci-env
           echo ./result/bin >> $GITHUB_PATH
+          nix flake archive ./test
           echo NIX_PATH="$(nix eval --raw ./test#NIX_PATH)" >> $GITHUB_ENV
       - if: ${{ !matrix.run }}
         run: configdiff --dump dump.txt ${{ matrix.flake && '.?dir=test#' || 'test/' }}${{ matrix.flake || matrix.impure }}
@@ -53,6 +54,6 @@ jobs:
         env:
           PAGER: cat
           FORCE_COLOR: 1
-        run: configdiff --use-dump dump.txt | rg --color=never --passthru --fixed-strings '${{ matrix.expect }}'
+        run: configdiff --use-dump dump.txt | tee /dev/stderr | ansifilter | rg -F '${{ matrix.expect }}'
       - if: ${{ matrix.run }}
         run: ${{ matrix.run }}
