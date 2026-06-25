@@ -14,7 +14,7 @@
     , home-manager
     , nix-darwin
     , nixvim
-    }@inputs:
+    }:
     {
       nixosConfigurations =
         let
