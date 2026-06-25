@@ -16,7 +16,7 @@ from termcolor import colored
 parser = argparse.ArgumentParser(
     usage="""%(prog)s [OPTIONS] ARGS [-- NIX_ARGS]
 
-diff how nixpkgs lib.evalModules gets used between configurations in flakes
+diff how nixpkgs lib.evalModules gets used between configurations
 
 examples:
     %(prog)s {new,old}#nixosConfigurations.machine
