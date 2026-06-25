@@ -16,7 +16,7 @@
             # set configdiffFlake and configdiffFlakeAttr if they're different from above
           };
         in
-        rec {
+        {
           inherit configdiff;
           default = configdiff;
           ci-env = pkgs.buildEnv {
