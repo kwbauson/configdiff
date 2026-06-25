@@ -8,16 +8,26 @@ jobs:
     strategy:
       matrix:
         include:
+          # flake tests
           - flake: nixosConfigurations.{base,postgresql}
+          - flake: darwinConfigurations.{base,dnsmasq}
+          - flake: darwinConfigurations.base --new-modules '{ programs.git.enable = true; }'
           - flake: nixosConfigurations.{base,postgresql}
             os: macos-latest
-    runs-on: ${{ matrix.os || 'macos-latest' }}
+
+          # impure tests
+          - impure: 'nixos/configuration.nix --new-module "{ services.postgresql.enable = true; }"'
+
+    runs-on: ${{ matrix.os || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v7
       - uses: nixbuild/nix-quick-install-action@v35
       - run: nix build
       - run: echo ./result/bin >> $GITHUB_PATH
-      - run: configdiff --help
+      - if: ${{ matrix.flake }}
+        run: configdiff .?dir=test#${{ matrix.flake }}
+      - if: ${{ matrix.impure }}
+        run: configdiff test/${{ matrix.impure }}
 
   # run:
   #   runs-on: ubuntu-latest
