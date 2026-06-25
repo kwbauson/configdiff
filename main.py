@@ -255,7 +255,7 @@ else:
                 "could not infer configuration type from filename, please specify with --type"
             )
 
-        print(json.dumps(["new", "TODO", ""]))
+        trace_lines = [json.dumps(["new", "TODO", ""])]
 
 
 if args.dump:
