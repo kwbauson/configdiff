@@ -22,11 +22,11 @@ jobs:
             expect: system.nixos.release = "26.05
 
           - flake: nixosConfigurations.{base,postgresql}
-            expect: systemd.services.postgresql.enable
+            expect: systemd.services.postgresql.enable = true
             os: macos-latest
 
-          # - impure: nixos/configuration.nix --new-module '{ programs.zsh.enable = true; }'
-          #   expect: environment.etc.zinputrc.enable
+          - impure: nixos/configuration.nix --new-module '{ programs.zsh.enable = true; }'
+            expect: environment.etc.zinputrc.enable = true
           # - impure: nixos/configuration.nix --new-include nixpkgs=https://channels.nixos.org/nixos-unstable-small/nixexprs.tar.xz
           #   expect: TODO
           # - impure: nix-darwin/configuration.nix --new-module '{ services.dnsmasq.enable = true; }'
@@ -54,6 +54,6 @@ jobs:
         env:
           PAGER: cat
           FORCE_COLOR: 1
-        run: configdiff --use-dump dump.txt | tee /dev/stderr | ansifilter | rg -F '${{ matrix.expect }}'
+        run: configdiff --use-dump dump.txt | tee /dev/stderr | ansifilter | rg -nF '${{ matrix.expect }}'
       - if: ${{ matrix.run }}
         run: ${{ matrix.run }}

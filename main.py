@@ -273,6 +273,11 @@ else:
                 nix="nix-instantiate",
             )
 
+        run_nix_str(
+            ["--no-link", internal["self_nix"]],
+            ["--attr", f"{internal['self_nix_attr']}.patched-modules-nix"],
+            nix="nix-build",
+        )
         trace_lines = itertools.chain(run("old"), run("new"))
 
 

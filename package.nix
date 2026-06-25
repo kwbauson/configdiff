@@ -44,7 +44,7 @@ let
     internal["marker"] = "${traceMarker}"
   '';
   patched-modules-nix = runCommandLocal "patched-modules.nix" { } ''
-    cp ${pkgs.path}/lib/modules.nix $out
+    cp ${pkgs.path + "/lib/modules.nix"} $out
     patch $out ${./eval-modules-traced.patch}
   '';
   toPathStringPart = n: if isString n then escapeNixIdentifier n else "*";
@@ -202,4 +202,4 @@ in
     libraries = ps: [ ps.termcolor ];
   }
   (lib.replaceString internalMarker extraParser (readFile ./main.py))
-).overrideAttrs { passthru = { inherit mkFlake run runImpure; }; }
+).overrideAttrs { passthru = { inherit mkFlake run runImpure patched-modules-nix; }; }
