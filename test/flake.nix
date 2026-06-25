@@ -89,12 +89,5 @@
           modules = [{ lsp.servers.ty.enable = true; }];
         };
       };
-
-      packages = nixpkgs.lib.genAttrs nixpkgs.lib.systems.flakeExposed (system: {
-        ci = with nixpkgs.legacyPackages.${system}; buildEnv {
-          name = "ci";
-          paths = [ ripgrep ];
-        };
-      });
     };
 }
