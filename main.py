@@ -107,37 +107,6 @@ if not args.new and (
 ):
     args.new = args.old
 
-if not ((args.new and args.old) or args.use_dump):
-    parser.error("missing required args")
-
-
-if "#" in args.old and "#" in args.new:
-    is_flake = True
-elif "#" not in args.old and "#" not in args.new:
-    is_flake = False
-else:
-    die("cannot mix flake and non-flake configurations")
-
-
-def inOldOrNew(text):
-    return text in args.old or text in args.new
-
-
-if not is_flake:
-    args.old = os.path.abspath(args.old)
-    args.new = os.path.abspath(args.new)
-    if args.type is None:
-        if inOldOrNew("nixos/configuration.nix"):
-            args.type = "nixos"
-        elif inOldOrNew("nix-darwin/configuration.nix"):
-            args.type = "nix-darwin"
-        elif inOldOrNew("home-manager/home.nix"):
-            args.type = "home-manager"
-    if args.type is None:
-        die(
-            "could not infer configuration type from filename, please specify with --type"
-        )
-
 
 def flatten(x):
     if isinstance(x, list) or isinstance(x, tuple):
@@ -223,11 +192,40 @@ def optionalArgStr(name):
         return []
 
 
+def inOldOrNew(text):
+    return text in args.old or text in args.new
+
+
 trace_lines = []
 
 if args.use_dump:
     trace_lines = open(args.use_dump)
 else:
+    if not (args.new and args.old):
+        parser.error("missing required args")
+
+    if "#" in args.old and "#" in args.new:
+        is_flake = True
+    elif "#" not in args.old and "#" not in args.new:
+        is_flake = False
+    else:
+        die("cannot mix flake and non-flake configurations")
+
+    if not is_flake:
+        args.old = os.path.abspath(args.old)
+        args.new = os.path.abspath(args.new)
+        if args.type is None:
+            if inOldOrNew("nixos/configuration.nix"):
+                args.type = "nixos"
+            elif inOldOrNew("nix-darwin/configuration.nix"):
+                args.type = "nix-darwin"
+            elif inOldOrNew("home-manager/home.nix"):
+                args.type = "home-manager"
+        if args.type is None:
+            die(
+                "could not infer configuration type from filename, please specify with --type"
+            )
+
     trace_flake = run_nix_str(
         "build",
         ["--no-link", "--print-out-paths"] if not args.build_trace_flake else [],
