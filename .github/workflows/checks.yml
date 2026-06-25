@@ -22,7 +22,7 @@ jobs:
           - flake: nixosConfigurations.base --new-module '{ programs.zsh.enable = true; }'
             expect: environment.etc.zinputrc.enable
           - flake: nixosConfigurations.base -- --override-input new/nixpkgs nixpkgs/nixos-unstable-small
-            expect: system.nixos.releaseFAIL
+            expect: system.nixos.release
 
           - flake: nixosConfigurations.{base,postgresql}
             expect: systemd.services.postgresql.enable
@@ -36,6 +36,7 @@ jobs:
           - run: nix run . .#nixosConfigurations.{base,hello}
           - run: nix run github:kwbauson/configdiff github:kwbauson/configdiff?dir=test#nixosConfigurations.{base,postgresql}
 
+    name: ${{ matrix.flake || matrix.impure || matrix.run }} ${{ matrix.os && '(' + matrix.os + ')' || '' }}
     runs-on: ${{ matrix.os || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v7
