@@ -1,51 +1,59 @@
 name: checks
 on: { workflow_dispatch, push }
-env:
-  PAGER: cat
-  FORCE_COLOR: 1
 jobs:
-  run:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: cachix/install-nix-action@v31
-      - run: nix run . .#nixosConfigurations.{base,hello}
-  run-github:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: cachix/install-nix-action@v31
-      - run: nix run github:kwbauson/configdiff github:kwbauson/configdiff?dir=test#nixosConfigurations.{base,postgresql}
-  run-test:
+  check:
     strategy:
       matrix:
-        os: [ubuntu-latest]
-        compare:
-          - 'nixosConfigurations.{base,postgresql}'
-          - 'nixosConfigurations.{base,home-manager}'
-          - 'homeConfigurations.{base,git}'
-          - 'darwinConfigurations.{base,dnsmasq}'
-          - 'nixvimConfigurations.{base,ty}'
-          - "nixosConfigurations.base --new-module '{ services.postgresql.enable = true; }'"
-          - "nixosConfigurations.base -- --override-input new/nixpkgs nixpkgs/nixos-unstable-small"
         include:
-          - os: macos-latest
-            compare: 'nixosConfigurations.{base,postgresql}'
-          - os: macos-latest
-            compare: 'darwinConfigurations.{base,dnsmasq}'
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v5
-      - uses: cachix/install-nix-action@v31
-      - run: nix run . -- --dump dump.txt .?dir=test#${{ matrix.compare }}
-      - run: nix run . -- --use-dump dump.txt
-  run-override:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: cachix/install-nix-action@v31
-      - run: |
-          nix --quiet run . -- --quiet .?dir=test#nixosConfigurations.base{,} -- \
-            --override-input old/nixpkgs nixpkgs/nixos-25.11 --override-input new/nixpkgs nixpkgs/nixos-26.05
+          - flake: nixosConfigurations.{base,postgresql}
+            expect: systemd.services.postgresql.enable = true
+          - flake: nixosConfigurations.{base,home-manager}
+            expect: home-manager.users.foo.home.activationPackage
+          - flake: homeConfigurations.{base,git}
+            expect: xdg.configFile."git/config".enable = true
+          - flake: darwinConfigurations.{base,dnsmasq}
+            expect: launchd.daemons.dnsmasq.serviceConfig.Label
+          - flake: nixvimConfigurations.{base,ty}
+            expect: vim.lsp.enable("ty")
 
-# TODO test the actual output
+          - flake: nixosConfigurations.base --new-module '{ programs.zsh.enable = true; }'
+            expect: environment.etc.zinputrc.enable = true
+          - flake: nixosConfigurations.base -- --override-input new/nixpkgs nixpkgs/nixos-unstable-small
+            expect: system.nixos.release = "26.05
+
+          - flake: nixosConfigurations.{base,postgresql}
+            expect: systemd.services.postgresql.enable = true
+            os: macos-latest
+
+          - impure: nixos/configuration.nix --new-module '{ programs.zsh.enable = true; }'
+            expect: environment.etc.zinputrc.enable = true
+          - impure: nixos/configuration.nix --new-include nixpkgs=https://channels.nixos.org/nixos-unstable-small/nixexprs.tar.xz
+            expect: system.nixos.release = "26.05
+          - impure: nix-darwin/configuration.nix --new-module '{ services.dnsmasq.enable = true; }'
+            expect: launchd.daemons.dnsmasq.serviceConfig.Label
+          - impure: home-manager/home.nix --new-module '{ programs.git.enable = true; }'
+            expect: xdg.configFile."git/config".enable = true
+
+          - run: nix run . .#nixosConfigurations.{base,hello}
+          - run: nix run github:kwbauson/configdiff github:kwbauson/configdiff?dir=test#nixosConfigurations.{base,postgresql}
+
+    name: ${{ matrix.flake || matrix.impure || matrix.run }}${{ matrix.os && format(' ({0})', matrix.os) || '' }}
+    runs-on: ${{ matrix.os || 'ubuntu-latest' }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: nixbuild/nix-quick-install-action@v35
+      - if: ${{ !matrix.run }}
+        run: |
+          nix build .#ci-env
+          echo ./result/bin >> $GITHUB_PATH
+          nix flake archive ./test
+          echo NIX_PATH="$(nix eval --raw ./test#NIX_PATH)" >> $GITHUB_ENV
+      - if: ${{ !matrix.run }}
+        run: configdiff --dump dump.txt ${{ matrix.flake && '.?dir=test#' || 'test/' }}${{ matrix.flake || matrix.impure }}
+      - if: ${{ !matrix.run }}
+        env:
+          PAGER: cat
+          FORCE_COLOR: 1
+        run: configdiff --use-dump dump.txt | tee /dev/stderr | ansifilter | rg -nF '${{ matrix.expect }}'
+      - if: ${{ matrix.run }}
+        run: ${{ matrix.run }}

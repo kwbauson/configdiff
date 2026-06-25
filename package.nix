@@ -44,7 +44,7 @@ let
     internal["marker"] = "${traceMarker}"
   '';
   patched-modules-nix = runCommandLocal "patched-modules.nix" { } ''
-    cp ${pkgs.path}/lib/modules.nix $out
+    cp ${pkgs.path + "/lib/modules.nix"} $out
     patch $out ${./eval-modules-traced.patch}
   '';
   toPathStringPart = n: if isString n then escapeNixIdentifier n else "*";
@@ -174,6 +174,34 @@ let
     (eval old (traceConfig args "old"))
     (eval new (traceConfig args "new"))
   ];
+  runImpure =
+    { type
+    , label
+    , path
+    , eval ? null
+    , oldModule ? null
+    , newModule ? null
+    }@args:
+    let
+      configuration = {
+        nixos = import <nixpkgs/nixos/lib/eval-config.nix> {
+          modules = [ path ];
+        };
+        nix-darwin = import <darwin> {
+          configuration = path;
+        };
+        home-manager = import <home-manager/modules> {
+          configuration = path;
+          pkgs = import <nixpkgs> { };
+        };
+      }.${type};
+      traced = traceConfig (args // { ${label} = configuration; }) label;
+      result =
+        if eval == null
+        then tryEvalOutput configuration traced
+        else getAttrFromPath (splitString "." eval) traced;
+    in
+    seq result "";
 in
 (writers.writePython3Bin "configdiff"
   {
@@ -181,4 +209,4 @@ in
     libraries = ps: [ ps.termcolor ];
   }
   (lib.replaceString internalMarker extraParser (readFile ./main.py))
-).overrideAttrs { passthru = { inherit mkFlake run; }; }
+).overrideAttrs { passthru = { inherit mkFlake run runImpure patched-modules-nix; }; }

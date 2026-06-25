@@ -16,17 +16,21 @@ version of that project, and only the diff functionality.
 $ configdiff --usage
 usage: configdiff [OPTIONS] ARGS [-- NIX_ARGS]
 
-diff how nixpkgs lib.evalModules gets used between configurations in flakes
+diff how nixpkgs lib.evalModules gets used between configurations
 
 examples:
     configdiff {new,old}#nixosConfigurations.machine
     configdiff flake#nixosConfigurations.{machine,other}
     configdiff ~/flake-repo{?ref=HEAD,}#nixosConfigurations.machine
+
     configdiff flake#nixosConfigurations.machine -- --override-input new/nixpkgs nixpkgs/nixos-unstable-small
     configdiff flake#nixosConfigurations.machine --new-module '{ services.postgresql.enable = true; }'
     configdiff flake#darwinConfigurations.machine --new-module '{ services.dnsmasq.enable = true; }'
     configdiff flake#homeConfigurations.user --new-module '{ programs.git.enable = true; }'
     configdiff flake#nixvimConfiguration --new-module '{ lsp.servers.ty.enable = true; }'
+
+    configdiff {/run/current-system,/etc/nixos}/configuration.nix
+    configdiff /etc/nixos/configuration.nix --new-include nixpkgs=https://channels.nixos.org/nixos-unstable-small/nixexprs.tar.xz
 ```
 
 As long as you're using flakes, you can run this directly on your

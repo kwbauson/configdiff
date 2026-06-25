@@ -1,9 +1,12 @@
 {
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    home-manager.url = "github:nix-community/home-manager";
-    nix-darwin.url = "github:nix-darwin/nix-darwin";
-    nixvim.url = "github:nix-community/nixvim";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
+    home-manager.url = "github:nix-community/home-manager/release-26.05";
+    home-manager.inputs.nixpkgs.follows = "nixpkgs";
+    nix-darwin.url = "github:nix-darwin/nix-darwin/nix-darwin-26.05";
+    nix-darwin.inputs.nixpkgs.follows = "nixpkgs";
+    nixvim.url = "github:nix-community/nixvim/nixos-26.05";
+    nixvim.inputs.nixpkgs.follows = "nixpkgs";
   };
   outputs =
     { self
@@ -16,7 +19,7 @@
       nixosConfigurations =
         let
           baseModule = { modulesPath, ... }: {
-            imports = [ "${modulesPath}/installer/cd-dvd/installation-cd-minimal.nix" ];
+            imports = [ ./nixos/configuration.nix ];
             nixpkgs.pkgs = nixpkgs.legacyPackages.x86_64-linux;
           };
         in
@@ -46,11 +49,7 @@
       homeConfigurations =
         let
           pkgs = nixpkgs.legacyPackages.x86_64-linux;
-          baseModule.home = {
-            stateVersion = "26.11";
-            username = "foo";
-            homeDirectory = "/home/foo";
-          };
+          baseModule = ./home-manager/home.nix;
         in
         {
           base = home-manager.lib.homeManagerConfiguration {
@@ -69,7 +68,7 @@
       darwinConfigurations =
         let
           baseModule = {
-            system.stateVersion = 7;
+            imports = [ ./nix-darwin/configuration.nix ];
             nixpkgs.pkgs = nixpkgs.legacyPackages.aarch64-darwin;
           };
         in
@@ -89,6 +88,11 @@
           system = "x86_64-linux";
           modules = [{ lsp.servers.ty.enable = true; }];
         };
+      };
+
+      NIX_PATH = nixpkgs.lib.concatMapAttrsStringSep ":" (n: i: "${n}=${i.outPath}") {
+        inherit nixpkgs home-manager;
+        darwin = nix-darwin;
       };
     };
 }

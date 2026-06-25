@@ -7,13 +7,23 @@
 
   outputs = { self, nixpkgs, ... }:
     {
-      packages = nixpkgs.lib.genAttrs nixpkgs.lib.systems.flakeExposed (system: {
-        default = nixpkgs.legacyPackages.${system}.callPackage ./package.nix {
-          configdiffNix = self.outPath;
-          configdiffNixAttr = "default";
-          # set configdiffFlake and configdiffFlakeAttr if they're different from above
-        };
-      });
+      packages = nixpkgs.lib.genAttrs nixpkgs.lib.systems.flakeExposed (system:
+        let
+          pkgs = nixpkgs.legacyPackages.${system};
+          configdiff = pkgs.callPackage ./package.nix {
+            configdiffNix = self.outPath;
+            configdiffNixAttr = "default";
+            # set configdiffFlake and configdiffFlakeAttr if they're different from above
+          };
+        in
+        {
+          inherit configdiff;
+          default = configdiff;
+          ci-env = pkgs.buildEnv {
+            name = "ci-env";
+            paths = [ configdiff pkgs.ripgrep pkgs.ansifilter ];
+          };
+        });
 
       nixosConfigurations =
         let
