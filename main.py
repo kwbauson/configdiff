@@ -26,6 +26,9 @@ examples:
     %(prog)s flake#darwinConfigurations.machine --new-module '{ services.dnsmasq.enable = true; }'
     %(prog)s flake#homeConfigurations.user --new-module '{ programs.git.enable = true; }'
     %(prog)s flake#nixvimConfiguration --new-module '{ lsp.servers.ty.enable = true; }'
+
+    %(prog)s {/run/current-system,/etc/nixos}/configuration.nix
+    %(prog)s /etc/nixos/configuration.nix --  --override-input new/nixpkgs nixpkgs/nixos-unstable-small
 """
 )
 
@@ -51,6 +54,12 @@ parser.add_argument(
 parser.add_argument(
     "--eval",
     help="nix path in config to evaluate for trace, e.g. system.build.toplevel.outPath",
+)
+parser.add_argument(
+    "--type",
+    choices=["nixos", "nix-darwin", "home-manager"],
+    default=None,
+    help="When not using flakes, the type of configuration",
 )
 parser.add_argument("--dump", help="dump nix output to a file instead of diffing")
 parser.add_argument("--use-dump", help="use previously dumped output")
@@ -100,6 +109,34 @@ if not args.new and (
 
 if not ((args.new and args.old) or args.use_dump):
     parser.error("missing required args")
+
+
+if "#" in args.old and "#" in args.new:
+    is_flake = True
+elif "#" not in args.old and "#" not in args.new:
+    is_flake = False
+else:
+    die("cannot mix flake and non-flake configurations")
+
+
+def inOldOrNew(text):
+    return text in args.old or text in args.new
+
+
+if not is_flake:
+    args.old = os.path.abspath(args.old)
+    args.new = os.path.abspath(args.new)
+    if args.type is None:
+        if inOldOrNew("nixos/configuration.nix"):
+            args.type = "nixos"
+        elif inOldOrNew("nix-darwin/configuration.nix"):
+            args.type = "nix-darwin"
+        elif inOldOrNew("home-manager/home.nix"):
+            args.type = "home-manager"
+    if args.type is None:
+        die(
+            "could not infer configuration type from filename, please specify with --type"
+        )
 
 
 def flatten(x):
@@ -193,8 +230,8 @@ if args.use_dump:
 else:
     trace_flake = run_nix_str(
         "build",
-        ["--file", internal["self_nix"], f"{internal['self_nix_attr']}.mkFlake"],
         ["--no-link", "--print-out-paths"] if not args.build_trace_flake else [],
+        ["--file", internal["self_nix"], f"{internal['self_nix_attr']}.mkFlake"],
         ["--arg", "configdiff", get_flake_path(internal["self_flake"])],
         ["--arg", "old", get_flake_path(args.old.split("#")[0])],
         ["--arg", "new", get_flake_path(args.new.split("#")[0])],
