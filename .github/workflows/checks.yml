@@ -11,7 +11,7 @@ jobs:
           # flake tests
           - flake: nixosConfigurations.{base,postgresql}
           - flake: darwinConfigurations.{base,dnsmasq}
-          - flake: darwinConfigurations.base --new-modules '{ programs.git.enable = true; }'
+          - flake: darwinConfigurations.base --new-module '{ programs.git.enable = true; }'
           - flake: nixosConfigurations.{base,postgresql}
             os: macos-latest
 
