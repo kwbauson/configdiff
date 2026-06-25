@@ -36,7 +36,7 @@ jobs:
           - run: nix run . .#nixosConfigurations.{base,hello}
           - run: nix run github:kwbauson/configdiff github:kwbauson/configdiff?dir=test#nixosConfigurations.{base,postgresql}
 
-    name: ${{ matrix.flake || matrix.impure || matrix.run }}${{ matrix.os && join([' (', matrix.os, ')']) || '' }}
+    name: ${{ matrix.flake || matrix.impure || matrix.run }}${{ matrix.os && format(' ({0})', matrix.os) || '' }}
     runs-on: ${{ matrix.os || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v7
