@@ -28,7 +28,7 @@ examples:
     %(prog)s flake#nixvimConfiguration --new-module '{ lsp.servers.ty.enable = true; }'
 
     %(prog)s {/run/current-system,/etc/nixos}/configuration.nix
-    %(prog)s /etc/nixos/configuration.nix --  --override-input new/nixpkgs nixpkgs/nixos-unstable-small
+    %(prog)s /etc/nixos/configuration.nix --new-include nixpkgs=https://channels.nixos.org/nixos-unstable-small/nixexprs.tar.xz
 """
 )
 
@@ -52,13 +52,18 @@ parser.add_argument(
     "--new-module", help="the text of a module that gets injected into new"
 )
 parser.add_argument(
+    "--old-include", help="Include search paths for old non-flake configuration"
+)
+parser.add_argument(
+    "--new-include", help="Include search paths for new non-flake configuration"
+)
+parser.add_argument(
     "--eval",
     help="nix path in config to evaluate for trace, e.g. system.build.toplevel.outPath",
 )
 parser.add_argument(
     "--type",
     choices=["nixos", "nix-darwin", "home-manager"],
-    default=None,
     help="When not using flakes, the type of configuration",
 )
 parser.add_argument("--dump", help="dump nix output to a file instead of diffing")
@@ -143,10 +148,10 @@ def select_lines(*files) -> Generator[tuple[str, Any]]:
 show_spinner = sys.stdout.isatty() and not args.quiet
 
 
-def run_nix(*cmdline):
+def run_nix(*cmdline, nix="nix"):
     spinner_chars = "/-\\"
     spinner_idx = 0
-    run_args = ["nix"] + (["--quiet"] if args.quiet else []) + flatten(cmdline)
+    run_args = [nix] + (["--quiet"] if args.quiet else []) + flatten(cmdline)
     if args.verbose:
         print("++", " ".join(run_args))
     with subprocess.Popen(
@@ -170,8 +175,8 @@ def run_nix(*cmdline):
         die("nix had non-zero exit code", proc.returncode)
 
 
-def run_nix_str(*cmdline):
-    return "".join(run_nix(*cmdline))
+def run_nix_str(*args, **kwargs):
+    return "".join(run_nix(*args, **kwargs))
 
 
 def get_flake_path(ref):
@@ -211,37 +216,43 @@ else:
     else:
         die("cannot mix flake and non-flake configurations")
 
-    if not is_flake:
+    if is_flake:
+        if args.old_include or args.new_include:
+            die("--include-* options cannot be used with flakes")
+        trace_flake = run_nix_str(
+            "build",
+            ["--no-link", "--print-out-paths"] if not args.build_trace_flake else [],
+            ["--file", internal["self_nix"], f"{internal['self_nix_attr']}.mkFlake"],
+            ["--arg", "configdiff", get_flake_path(internal["self_flake"])],
+            ["--arg", "old", get_flake_path(args.old.split("#")[0])],
+            ["--arg", "new", get_flake_path(args.new.split("#")[0])],
+            ["--argstr", "oldOutput", args.old.split("#")[1]],
+            ["--argstr", "newOutput", args.new.split("#")[1]],
+            optionalArgStr("eval"),
+            optionalArgStr("old_module"),
+            optionalArgStr("new_module"),
+        ).strip()
+        if args.build_trace_flake:
+            exit()
+        trace_lines = run_nix("eval", "--raw", f"{trace_flake}#traced", nix_args)
+
+    else:
         args.old = os.path.abspath(args.old)
         args.new = os.path.abspath(args.new)
         if args.type is None:
-            if inOldOrNew("nixos/configuration.nix"):
+            if inOldOrNew("/nixos/configuration.nix"):
                 args.type = "nixos"
-            elif inOldOrNew("nix-darwin/configuration.nix"):
+            elif inOldOrNew("/nix-darwin/configuration.nix"):
                 args.type = "nix-darwin"
-            elif inOldOrNew("home-manager/home.nix"):
+            elif inOldOrNew("/home-manager/home.nix"):
                 args.type = "home-manager"
         if args.type is None:
             die(
                 "could not infer configuration type from filename, please specify with --type"
             )
 
-    trace_flake = run_nix_str(
-        "build",
-        ["--no-link", "--print-out-paths"] if not args.build_trace_flake else [],
-        ["--file", internal["self_nix"], f"{internal['self_nix_attr']}.mkFlake"],
-        ["--arg", "configdiff", get_flake_path(internal["self_flake"])],
-        ["--arg", "old", get_flake_path(args.old.split("#")[0])],
-        ["--arg", "new", get_flake_path(args.new.split("#")[0])],
-        ["--argstr", "oldOutput", args.old.split("#")[1]],
-        ["--argstr", "newOutput", args.new.split("#")[1]],
-        optionalArgStr("eval"),
-        optionalArgStr("old_module"),
-        optionalArgStr("new_module"),
-    ).strip()
-    if args.build_trace_flake:
-        exit()
-    trace_lines = run_nix("eval", "--raw", f"{trace_flake}#traced", nix_args)
+        print("TODO")
+
 
 if args.dump:
     with open(args.dump, "w") as out:
