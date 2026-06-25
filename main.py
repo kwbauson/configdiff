@@ -108,7 +108,11 @@ if args.usage:
     exit()
 
 if not args.new and (
-    args.old_module or args.new_module or "--override-input" in nix_args
+    args.old_module
+    or args.new_module
+    or "--override-input" in nix_args
+    or args.old_include
+    or args.new_include
 ):
     args.new = args.old
 
