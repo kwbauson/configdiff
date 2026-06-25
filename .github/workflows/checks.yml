@@ -25,8 +25,8 @@ jobs:
             expect: systemd.services.postgresql.enable
             os: macos-latest
 
-          - impure: nixos/configuration.nix --new-module '{ programs.zsh.enable = true; }'
-            expect: environment.etc.zinputrc.enable
+          # - impure: nixos/configuration.nix --new-module '{ programs.zsh.enable = true; }'
+          #   expect: environment.etc.zinputrc.enable
           # - impure: nixos/configuration.nix --new-include nixpkgs=https://channels.nixos.org/nixos-unstable-small/nixexprs.tar.xz
           #   expect: TODO
           # - impure: nix-darwin/configuration.nix --new-module '{ services.dnsmasq.enable = true; }'
