@@ -14,7 +14,7 @@
     , home-manager
     , nix-darwin
     , nixvim
-    }:
+    }@inputs:
     {
       nixosConfigurations =
         let
@@ -89,5 +89,7 @@
           modules = [{ lsp.servers.ty.enable = true; }];
         };
       };
+
+      NIX_PATH = nixpkgs.lib.concatMapAttrsStringSep ":" (n: i: "${n}=${i.outPath}") (removeAttrs inputs [ "self" ]);
     };
 }

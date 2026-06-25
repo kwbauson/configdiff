@@ -174,6 +174,27 @@ let
     (eval old (traceConfig args "old"))
     (eval new (traceConfig args "new"))
   ];
+  runImpure =
+    { type
+    , label
+    , path
+    , eval ? null
+    , oldModule ? null
+    , newModule ? null
+    }@args:
+    let
+      configuration = {
+        nixos = import <nixpkgs/nixos/lib/eval-config.nix> {
+          modules = [ path ];
+        };
+      }.${type};
+      traced = traceConfig (args // { ${label} = configuration; }) label;
+      result =
+        if eval == null
+        then tryEvalOutput configuration traced
+        else getAttrFromPath (splitString "." eval) traced;
+    in
+    seq result "";
 in
 (writers.writePython3Bin "configdiff"
   {
@@ -181,4 +202,4 @@ in
     libraries = ps: [ ps.termcolor ];
   }
   (lib.replaceString internalMarker extraParser (readFile ./main.py))
-).overrideAttrs { passthru = { inherit mkFlake run; }; }
+).overrideAttrs { passthru = { inherit mkFlake run runImpure; }; }

@@ -1,8 +1,5 @@
 name: checks
 on: { workflow_dispatch, push }
-env:
-  PAGER: cat
-  FORCE_COLOR: 1
 jobs:
   check:
     strategy:
@@ -28,14 +25,14 @@ jobs:
             expect: systemd.services.postgresql.enable
             os: macos-latest
 
-          - impure: nixos/configuration.nix --new-module '{ services.postgresql.enable = true; }'
-            expect: TODO
-          - impure: nixos/configuration.nix --new-include nixpkgs=https://channels.nixos.org/nixos-unstable-small/nixexprs.tar.xz
-            expect: TODO
-          - impure: nix-darwin/configuration.nix --new-module '{ services.dnsmasq.enable = true; }'
-            expect: TODO
-          - impure: home-manager/home.nix --new-module '{ programs.git.enable = true; }'
-            expect: TODO
+          - impure: nixos/configuration.nix --new-module '{ programs.zsh.enable = true; }'
+            expect: environment.etc.zinputrc.enable
+          # - impure: nixos/configuration.nix --new-include nixpkgs=https://channels.nixos.org/nixos-unstable-small/nixexprs.tar.xz
+          #   expect: TODO
+          # - impure: nix-darwin/configuration.nix --new-module '{ services.dnsmasq.enable = true; }'
+          #   expect: TODO
+          # - impure: home-manager/home.nix --new-module '{ programs.git.enable = true; }'
+          #   expect: TODO
 
           - run: nix run . .#nixosConfigurations.{base,hello}
           - run: nix run github:kwbauson/configdiff github:kwbauson/configdiff?dir=test#nixosConfigurations.{base,postgresql}
@@ -46,12 +43,16 @@ jobs:
       - uses: actions/checkout@v7
       - uses: nixbuild/nix-quick-install-action@v35
       - if: ${{ !matrix.run }}
-        run: nix build .#ci-env && echo ./result/bin >> $GITHUB_PATH
+        run: |
+          nix build .#ci-env
+          echo ./result/bin >> $GITHUB_PATH
+          echo NIX_PATH="$(nix eval --raw ./test#NIX_PATH)" >> $GITHUB_ENV
       - if: ${{ !matrix.run }}
         run: configdiff --dump dump.txt ${{ matrix.flake && '.?dir=test#' || 'test/' }}${{ matrix.flake || matrix.impure }}
       - if: ${{ !matrix.run }}
+        env:
+          PAGER: cat
+          FORCE_COLOR: 1
         run: configdiff --use-dump dump.txt | rg --color=never --passthru --fixed-strings '${{ matrix.expect }}'
       - if: ${{ matrix.run }}
         run: ${{ matrix.run }}
-
-# TODO test the actual output

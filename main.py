@@ -1,6 +1,7 @@
 import argparse
 import difflib
 import io
+import itertools
 import json
 import os
 import re
@@ -191,12 +192,12 @@ def get_flake_path(ref):
         return data["path"]
 
 
-def optionalArgStr(name):
+def optionalArg(name, isStr=False):
     arg = getattr(args, name)
     if arg:
         parts = name.split("_")
         nix_name = "".join(parts[:1] + [part.capitalize() for part in parts[1:]])
-        return ["--argstr", nix_name, arg]
+        return ["--argstr" if isStr else "--arg", nix_name, arg]
     else:
         return []
 
@@ -232,15 +233,17 @@ else:
             ["--arg", "new", get_flake_path(args.new.split("#")[0])],
             ["--argstr", "oldOutput", args.old.split("#")[1]],
             ["--argstr", "newOutput", args.new.split("#")[1]],
-            optionalArgStr("eval"),
-            optionalArgStr("old_module"),
-            optionalArgStr("new_module"),
+            optionalArg("eval", isStr=True),
+            optionalArg("old_module", isStr=True),
+            optionalArg("new_module", isStr=True),
         ).strip()
         if args.build_trace_flake:
             exit()
         trace_lines = run_nix("eval", "--raw", f"{trace_flake}#traced", nix_args)
 
     else:
+        if args.build_trace_flake:
+            die("--build-trace-flake can only be used with flakes")
         args.old = os.path.abspath(args.old)
         args.new = os.path.abspath(args.new)
         if args.type is None:
@@ -255,7 +258,22 @@ else:
                 "could not infer configuration type from filename, please specify with --type"
             )
 
-        trace_lines = [json.dumps(["new", "TODO", "false"]) + "\n"]
+        def run(label, path):
+            return run_nix(
+                ["--eval", "--raw", internal["self_nix"]],
+                ["--attr", f"{internal['self_nix_attr']}.runImpure"],
+                ["--argstr", "type", args.type],
+                ["--argstr", "label", label],
+                ["--arg", "path", path],
+                optionalArg("eval", isStr=True),
+                optionalArg("old_module"),
+                optionalArg("new_module"),
+                nix="nix-instantiate",
+            )
+
+        old_trace_lines = run("old", args.old)
+        new_trace_lines = run("new", args.new)
+        trace_lines = itertools.chain(old_trace_lines, new_trace_lines)
 
 
 if args.dump:
