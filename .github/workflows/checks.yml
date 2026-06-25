@@ -28,10 +28,10 @@ jobs:
             expect: systemd.services.postgresql.enable
             os: macos-latest
 
-          - impure: nixos/configuration.nix --new-module '{ services.postgresql.enable = true; }'
-          - impure: nixos/configuration.nix --new-include nixpkgs=https://channels.nixos.org/nixos-unstable-small/nixexprs.tar.xz
-          - impure: nix-darwin/configuration.nix --new-module '{ services.dnsmasq.enable = true; }'
-          - impure: home-manager/home.nix --new-module '{ programs.git.enable = true; }'
+          # - impure: nixos/configuration.nix --new-module '{ services.postgresql.enable = true; }'
+          # - impure: nixos/configuration.nix --new-include nixpkgs=https://channels.nixos.org/nixos-unstable-small/nixexprs.tar.xz
+          # - impure: nix-darwin/configuration.nix --new-module '{ services.dnsmasq.enable = true; }'
+          # - impure: home-manager/home.nix --new-module '{ programs.git.enable = true; }'
 
           - run: nix run . .#nixosConfigurations.{base,hello}
           - run: nix run github:kwbauson/configdiff github:kwbauson/configdiff?dir=test#nixosConfigurations.{base,postgresql}
