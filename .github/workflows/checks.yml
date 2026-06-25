@@ -13,8 +13,11 @@ jobs:
             os: macos-latest
     runs-on: ${{ matrix.os || 'macos-latest' }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: nixbuild/nix-quick-install-action@v35
+      - run: nix build
+      - run: echo ./result/bin >> $GITHUB_PATH
+      - run: configdiff --help
 
   # run:
   #   runs-on: ubuntu-latest
