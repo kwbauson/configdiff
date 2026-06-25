@@ -27,12 +27,12 @@ jobs:
 
           - impure: nixos/configuration.nix --new-module '{ programs.zsh.enable = true; }'
             expect: environment.etc.zinputrc.enable = true
-          # - impure: nixos/configuration.nix --new-include nixpkgs=https://channels.nixos.org/nixos-unstable-small/nixexprs.tar.xz
-          #   expect: TODO
-          # - impure: nix-darwin/configuration.nix --new-module '{ services.dnsmasq.enable = true; }'
-          #   expect: TODO
-          # - impure: home-manager/home.nix --new-module '{ programs.git.enable = true; }'
-          #   expect: TODO
+          - impure: nixos/configuration.nix --new-include nixpkgs=https://channels.nixos.org/nixos-unstable-small/nixexprs.tar.xz
+            expect: system.nixos.release = "26.05
+          - impure: nix-darwin/configuration.nix --new-module '{ services.dnsmasq.enable = true; }'
+            expect: launchd.daemons.dnsmasq.serviceConfig.Label
+          - impure: home-manager/home.nix --new-module '{ programs.git.enable = true; }'
+            expect: xdg.configFile."git/config".enable = true
 
           - run: nix run . .#nixosConfigurations.{base,hello}
           - run: nix run github:kwbauson/configdiff github:kwbauson/configdiff?dir=test#nixosConfigurations.{base,postgresql}

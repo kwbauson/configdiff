@@ -187,6 +187,13 @@ let
         nixos = import <nixpkgs/nixos/lib/eval-config.nix> {
           modules = [ path ];
         };
+        nix-darwin = import <darwin> {
+          configuration = path;
+        };
+        home-manager = import <home-manager/modules> {
+          configuration = path;
+          pkgs = import <nixpkgs> { };
+        };
       }.${type};
       traced = traceConfig (args // { ${label} = configuration; }) label;
       result =

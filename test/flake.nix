@@ -90,6 +90,9 @@
         };
       };
 
-      NIX_PATH = nixpkgs.lib.concatMapAttrsStringSep ":" (n: i: "${n}=${i.outPath}") (removeAttrs inputs [ "self" ]);
+      NIX_PATH = nixpkgs.lib.concatMapAttrsStringSep ":" (n: i: "${n}=${i.outPath}") {
+        inherit nixpkgs home-manager;
+        darwin = nix-darwin;
+      };
     };
 }

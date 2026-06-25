@@ -273,6 +273,7 @@ else:
                 nix="nix-instantiate",
             )
 
+        # without this nix-instantiate errors about invalid path
         run_nix_str(
             ["--no-link", internal["self_nix"]],
             ["--attr", f"{internal['self_nix_attr']}.patched-modules-nix"],
