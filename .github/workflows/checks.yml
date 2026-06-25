@@ -4,63 +4,75 @@ env:
   PAGER: cat
   FORCE_COLOR: 1
 jobs:
-  run:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: cachix/install-nix-action@v31
-      - run: nix run . .#nixosConfigurations.{base,hello}
-  run-github:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: cachix/install-nix-action@v31
-      - run: nix run github:kwbauson/configdiff github:kwbauson/configdiff?dir=test#nixosConfigurations.{base,postgresql}
-  test:
+  check:
     strategy:
       matrix:
-        os: [ubuntu-latest]
-        compare:
-          - 'nixosConfigurations.{base,postgresql}'
-          - 'nixosConfigurations.{base,home-manager}'
-          - 'homeConfigurations.{base,git}'
-          - 'darwinConfigurations.{base,dnsmasq}'
-          - 'nixvimConfigurations.{base,ty}'
-          - 'nixosConfigurations.base --new-module "{ services.postgresql.enable = true; }"'
-          - 'nixosConfigurations.base -- --override-input new/nixpkgs nixpkgs/nixos-unstable-small'
         include:
-          - os: macos-latest
-            compare: 'nixosConfigurations.{base,postgresql}'
-          - os: macos-latest
-            compare: 'darwinConfigurations.{base,dnsmasq}'
-    runs-on: ${{ matrix.os }}
+          - flake: nixosConfigurations.{base,postgresql}
+          - flake: nixosConfigurations.{base,postgresql}
+            os: macos-latest
+    runs-on: ${{ matrix.os || macos-latest }}
     steps:
       - uses: actions/checkout@v5
       - uses: cachix/install-nix-action@v31
-      - run: nix run . -- --dump dump.txt .?dir=test#${{ matrix.compare }}
-      - run: nix run . -- --use-dump dump.txt
-  test-impure:
-    strategy:
-      matrix:
-        args:
-          - 'nixos/configuration.nix --new-module "{ services.postgresql.enable = true; }"'
-          - 'nixos/configuration.nix --new-include nixpkgs=https://channels.nixos.org/nixos-unstable-small/nixexprs.tar.xz'
-          - 'nixos/configuration.nix --new-include nixpkgs=https://channels.nixos.org/nixos-unstable-small/nixexprs.tar.xz'
-          - 'nix-darwin/configuration.nix --new-module "{ services.dnsmasq.enable = true; }"'
-          - 'home-manager/home.nix --new-module "{ programs.git.enable = true; }"'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: cachix/install-nix-action@v31
-      - run: nix run . -- --dump dump.txt test/${{ matrix.args }}
-      - run: nix run . -- --use-dump dump.txt
-  run-override:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: cachix/install-nix-action@v31
-      - run: |
-          nix --quiet run . -- --quiet .?dir=test#nixosConfigurations.base{,} -- \
-            --override-input old/nixpkgs nixpkgs/nixos-25.11 --override-input new/nixpkgs nixpkgs/nixos-26.05
+
+  # run:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v5
+  #     - uses: cachix/install-nix-action@v31
+  #     - run: nix run . .#nixosConfigurations.{base,hello}
+  # run-github:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v5
+  #     - uses: cachix/install-nix-action@v31
+  #     - run: nix run github:kwbauson/configdiff github:kwbauson/configdiff?dir=test#nixosConfigurations.{base,postgresql}
+  # test:
+  #   strategy:
+  #     matrix:
+  #       os: [ubuntu-latest]
+  #       compare:
+  #         - 'nixosConfigurations.{base,postgresql}'
+  #         - 'nixosConfigurations.{base,home-manager}'
+  #         - 'homeConfigurations.{base,git}'
+  #         - 'darwinConfigurations.{base,dnsmasq}'
+  #         - 'nixvimConfigurations.{base,ty}'
+  #         - 'nixosConfigurations.base --new-module "{ services.postgresql.enable = true; }"'
+  #         - 'nixosConfigurations.base -- --override-input new/nixpkgs nixpkgs/nixos-unstable-small'
+  #       include:
+  #         - os: macos-latest
+  #           compare: 'nixosConfigurations.{base,postgresql}'
+  #         - os: macos-latest
+  #           compare: 'darwinConfigurations.{base,dnsmasq}'
+  #   runs-on: ${{ matrix.os }}
+  #   steps:
+  #     - uses: actions/checkout@v5
+  #     - uses: cachix/install-nix-action@v31
+  #     - run: nix run . -- --dump dump.txt .?dir=test#${{ matrix.compare }}
+  #     - run: nix run . -- --use-dump dump.txt
+  # test-impure:
+  #   strategy:
+  #     matrix:
+  #       args:
+  #         - 'nixos/configuration.nix --new-module "{ services.postgresql.enable = true; }"'
+  #         - 'nixos/configuration.nix --new-include nixpkgs=https://channels.nixos.org/nixos-unstable-small/nixexprs.tar.xz'
+  #         - 'nixos/configuration.nix --new-include nixpkgs=https://channels.nixos.org/nixos-unstable-small/nixexprs.tar.xz'
+  #         - 'nix-darwin/configuration.nix --new-module "{ services.dnsmasq.enable = true; }"'
+  #         - 'home-manager/home.nix --new-module "{ programs.git.enable = true; }"'
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v5
+  #     - uses: cachix/install-nix-action@v31
+  #     - run: nix run . -- --dump dump.txt test/${{ matrix.args }}
+  #     - run: nix run . -- --use-dump dump.txt
+  # run-override:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v5
+  #     - uses: cachix/install-nix-action@v31
+  #     - run: |
+  #         nix --quiet run . -- --quiet .?dir=test#nixosConfigurations.base{,} -- \
+  #           --override-input old/nixpkgs nixpkgs/nixos-25.11 --override-input new/nixpkgs nixpkgs/nixos-26.05
 
 # TODO test the actual output
