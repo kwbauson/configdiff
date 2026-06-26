@@ -31,6 +31,8 @@ examples:
 
     %(prog)s {/run/current-system,/etc/nixos}/configuration.nix
     %(prog)s /etc/nixos/configuration.nix --new-include nixpkgs=https://channels.nixos.org/nixos-unstable-small/nixexprs.tar.xz
+
+    %(prog)s --config-json flake#nixosConfigurations.machine | jless
 """
 )
 
@@ -62,6 +64,11 @@ parser.add_argument(
 parser.add_argument(
     "--eval",
     help="nix path in config to evaluate for trace, e.g. system.build.toplevel.outPath",
+)
+parser.add_argument(
+    "--config-json",
+    action="store_true",
+    help="instead of diffing, output a json version of new config usage",
 )
 parser.add_argument(
     "--type",
@@ -115,6 +122,7 @@ if not args.new and (
     or "--override-input" in nix_args
     or args.old_include
     or args.new_include
+    or args.config_json
 ):
     args.new = args.old
 
@@ -154,10 +162,11 @@ def select_lines(*files) -> Generator[tuple[str, Any]]:
 show_spinner = sys.stdout.isatty() and not args.quiet
 
 
-def run_nix(*cmdline, nix="nix"):
+def run_nix(*cmdline):
+    cmdline = flatten(cmdline)
     spinner_chars = "/-\\"
     spinner_idx = 0
-    run_args = [nix] + (["--quiet"] if args.quiet else []) + flatten(cmdline)
+    run_args = cmdline[:1] + (["--quiet"] if args.quiet else []) + cmdline[1:]
     if args.verbose:
         print("++", " ".join(run_args))
     with subprocess.Popen(
@@ -181,12 +190,12 @@ def run_nix(*cmdline, nix="nix"):
         die("nix had non-zero exit code", proc.returncode)
 
 
-def run_nix_str(*args, **kwargs):
-    return "".join(run_nix(*args, **kwargs))
+def run_nix_str(*cmdline):
+    return "".join(run_nix(*cmdline))
 
 
 def get_flake_path(ref):
-    data = json.loads(run_nix_str("flake", "metadata", "--json", ref))
+    data = json.loads(run_nix_str("nix", "flake", "metadata", "--json", ref))
     if "dir" in data["resolved"]:
         return os.path.join(data["path"], data["resolved"]["dir"])
     else:
@@ -198,13 +207,67 @@ def optionalArg(name, isStr=False):
     if arg:
         parts = name.split("_")
         nix_name = "".join(parts[:1] + [part.capitalize() for part in parts[1:]])
-        return ["--argstr" if isStr else "--arg", nix_name, arg]
+        return [
+            "--argstr" if isStr else "--arg",
+            nix_name,
+            str(arg) if not isinstance(arg, bool) else str(arg).lower(),
+        ]
     else:
         return []
 
 
+def optionalArgStr(name):
+    return optionalArg(name, isStr=True)
+
+
 def inOldOrNew(text):
     return text in args.old or text in args.new
+
+
+def self_nix_args(attr):
+    return [
+        ["--no-build-output", internal["self_nix"]],
+        ["--attr", f"{internal['self_nix_attr']}.{attr}"],
+        optionalArg("config_json"),
+        optionalArgStr("eval"),
+    ]
+
+
+def run_nix_build(attr, *cmd_args):
+    return run_nix_str(
+        ["nix-build", "--no-build-output"], self_nix_args(attr), *cmd_args
+    )
+
+
+def run_flake():
+    trace_flake = run_nix_build(
+        "mkFlake",
+        ["--no-link"] if not args.build_trace_flake else [],
+        ["--arg", "configdiff", get_flake_path(internal["self_flake"])],
+        ["--arg", "old", get_flake_path(args.old.split("#")[0])],
+        ["--arg", "new", get_flake_path(args.new.split("#")[0])],
+        ["--argstr", "oldOutput", args.old.split("#")[1]],
+        ["--argstr", "newOutput", args.new.split("#")[1]],
+        optionalArgStr("old_module"),
+        optionalArgStr("new_module"),
+    ).strip()
+    if args.build_trace_flake:
+        exit()
+    return run_nix("nix", "eval", "--raw", f"{trace_flake}#traced", nix_args)
+
+
+def run_impure(label):
+    include = getattr(args, f"{label}_include", None)
+    return run_nix(
+        "nix-instantiate",
+        ["--eval", "--raw", self_nix_args("runImpure")],
+        ["--include", include] if include else [],
+        ["--argstr", "type", args.type],
+        ["--argstr", "label", label],
+        ["--arg", "path", getattr(args, label)],
+        optionalArg("old_module"),
+        optionalArg("new_module"),
+    )
 
 
 trace_lines = []
@@ -225,23 +288,8 @@ else:
     if is_flake:
         if args.old_include or args.new_include:
             die("--include-* options cannot be used with flakes")
-        trace_flake = run_nix_str(
-            "build",
-            ["--no-link", "--print-out-paths"] if not args.build_trace_flake else [],
-            ["--file", internal["self_nix"], f"{internal['self_nix_attr']}.mkFlake"],
-            ["--arg", "configdiff", get_flake_path(internal["self_flake"])],
-            ["--arg", "old", get_flake_path(args.old.split("#")[0])],
-            ["--arg", "new", get_flake_path(args.new.split("#")[0])],
-            ["--argstr", "oldOutput", args.old.split("#")[1]],
-            ["--argstr", "newOutput", args.new.split("#")[1]],
-            optionalArg("eval", isStr=True),
-            optionalArg("old_module", isStr=True),
-            optionalArg("new_module", isStr=True),
-        ).strip()
-        if args.build_trace_flake:
-            exit()
-        trace_lines = run_nix("eval", "--raw", f"{trace_flake}#traced", nix_args)
-
+        # TODO check out evaling old and new in parallel
+        trace_lines = run_flake()
     else:
         if args.build_trace_flake:
             die("--build-trace-flake can only be used with flakes")
@@ -258,29 +306,11 @@ else:
             die(
                 "could not infer configuration type from filename, please specify with --type"
             )
-
-        def run(label):
-            include = getattr(args, f"{label}_include", None)
-            return run_nix(
-                ["--eval", "--raw", internal["self_nix"]],
-                ["--attr", f"{internal['self_nix_attr']}.runImpure"],
-                ["--include", include] if include else [],
-                ["--argstr", "type", args.type],
-                ["--argstr", "label", label],
-                ["--arg", "path", getattr(args, label)],
-                optionalArg("eval", isStr=True),
-                optionalArg("old_module"),
-                optionalArg("new_module"),
-                nix="nix-instantiate",
-            )
-
         # without this nix-instantiate errors about invalid path
-        run_nix_str(
-            ["--no-link", internal["self_nix"]],
-            ["--attr", f"{internal['self_nix_attr']}.patched-modules-nix"],
-            nix="nix-build",
+        run_nix_build("patched-modules-nix", "--no-link")
+        trace_lines = itertools.chain(
+            run_impure("old") if not args.config_json else (), run_impure("new")
         )
-        trace_lines = itertools.chain(run("old"), run("new"))
 
 
 if args.dump:
@@ -288,12 +318,6 @@ if args.dump:
         for line in trace_lines:
             out.write(line)
     exit()
-
-items = {}
-for label, path, value in map(json.loads, trace_lines):
-    if path not in items:
-        items[path] = {"old": [], "new": []}
-    items[path][label].extend(value.splitlines())
 
 
 def norm_store_paths(text):
@@ -310,6 +334,50 @@ def split_text(text):
 
 def colored_lines(text, *args, **kwargs):
     return "\n".join(colored(line, *args, **kwargs) for line in text.splitlines())
+
+
+def diff_lines(old, new, old_seq, new_seq):
+    matcher = difflib.SequenceMatcher(a=old_seq, b=new_seq, autojunk=False)
+    results = []
+    deleted_count = 0
+    inserted_count = 0
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        old_lines = [colored(line, "red") for line in old[i1:i2]]
+        new_lines = [colored(line, "green") for line in new[j1:j2]]
+        if tag != "equal":
+            deleted_count += len(old_lines)
+            inserted_count += len(new_lines)
+        if tag == "delete":
+            results.extend(old_lines)
+        elif tag == "insert":
+            results.extend(new_lines)
+        elif tag == "replace":
+            inline_results = diff_inline(
+                split_text("\n".join(old[i1:i2])),
+                split_text("\n".join(new[j1:j2])),
+                split_text("\n".join(old_seq[i1:i2])),
+                split_text("\n".join(new_seq[j1:j2])),
+            )
+            results.extend("".join(inline_results).splitlines())
+    return (results, deleted_count, inserted_count)
+
+
+def diff_inline(old, new, old_seq, new_seq):
+    matcher = difflib.SequenceMatcher(a=old_seq, b=new_seq, autojunk=False)
+    results = []
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        equal_parts = "".join(old[i1:i2])
+        old_parts = colored_lines(equal_parts, "red")
+        new_parts = colored_lines("".join(new[j1:j2]), "green")
+        if tag == "equal":
+            results.append(equal_parts)
+        elif tag == "delete":
+            results.append(old_parts)
+        elif tag == "insert":
+            results.append(new_parts)
+        elif tag == "replace":
+            results.extend((old_parts, new_parts))
+    return results
 
 
 def diff_item(key, old, new, out):
@@ -329,42 +397,7 @@ def diff_item(key, old, new, out):
         new_seq = norm_new.splitlines()
         if len(old) != len(old_seq) or len(new) != len(new_seq):
             dir("normalized diff sequence length mismatch")
-    line_matcher = difflib.SequenceMatcher(a=old_seq, b=new_seq, autojunk=False)
-    results = []
-    deleted_count = 0
-    inserted_count = 0
-    for tag, i1, i2, j1, j2 in line_matcher.get_opcodes():
-        old_lines = [colored(line, "red") for line in old[i1:i2]]
-        new_lines = [colored(line, "green") for line in new[j1:j2]]
-        if tag != "equal":
-            deleted_count += len(old_lines)
-            inserted_count += len(new_lines)
-        if tag == "delete":
-            results.extend(old_lines)
-        elif tag == "insert":
-            results.extend(new_lines)
-        elif tag == "replace":
-            inline_old = split_text("\n".join(old[i1:i2]))
-            inline_new = split_text("\n".join(new[j1:j2]))
-            inline_old_seq = split_text("\n".join(old_seq[i1:i2]))
-            inline_new_seq = split_text("\n".join(new_seq[j1:j2]))
-            inline_matcher = difflib.SequenceMatcher(
-                a=inline_old_seq, b=inline_new_seq, autojunk=False
-            )
-            inline_results = []
-            for tag, i1, i2, j1, j2 in inline_matcher.get_opcodes():
-                equal_parts = "".join(inline_old[i1:i2])
-                old_parts = colored_lines(equal_parts, "red")
-                new_parts = colored_lines("".join(inline_new[j1:j2]), "green")
-                if tag == "equal":
-                    inline_results.append(equal_parts)
-                elif tag == "delete":
-                    inline_results.append(old_parts)
-                elif tag == "insert":
-                    inline_results.append(new_parts)
-                elif tag == "replace":
-                    inline_results.extend((old_parts, new_parts))
-            results.extend("".join(inline_results).splitlines())
+    results, deleted_count, inserted_count = diff_lines(old, new, old_seq, new_seq)
     if results:
         result_text = "\n  ".join(results)
         full_assign = (
@@ -380,8 +413,39 @@ def diff_item(key, old, new, out):
         )
 
 
-with tempfile.NamedTemporaryFile("w") as out:
-    for key in sorted(items.keys()):
-        diff_item(key, items[key]["old"], items[key]["new"], out)
-    out.flush()
-    subprocess.Popen([os.getenv("PAGER", "less"), out.name]).wait()
+UNSET = "__UNSET__"
+
+
+def set_at(target, key, value):
+    if isinstance(target, list) and not (key < len(target)):
+        target.extend(UNSET for _ in range(key + 1 - len(target)))
+    target[key] = value
+
+
+json_trace_lines = map(json.loads, trace_lines)
+if not args.config_json:
+    with tempfile.NamedTemporaryFile("w") as out:
+        items = {}
+        for label, path, value in json_trace_lines:
+            if path not in items:
+                items[path] = {"old": [], "new": []}
+            items[path][label].extend(value.splitlines())
+        for key in sorted(items.keys()):
+            diff_item(key, items[key]["old"], items[key]["new"], out)
+        out.flush()
+        subprocess.Popen([os.getenv("PAGER", "less"), out.name]).wait()
+else:
+    config = {}
+    for path, value in json_trace_lines:
+        current = config
+        for key, next_key in itertools.pairwise(path):
+            has_key = (isinstance(key, int) and key < len(current)) or key in current
+            has_key = has_key and current[key] != UNSET
+            if not has_key:
+                if isinstance(next_key, int):
+                    set_at(current, key, [])
+                else:
+                    set_at(current, key, {})
+            current = current[key]
+        set_at(current, path[-1], value)
+    print(json.dumps(config))

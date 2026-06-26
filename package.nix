@@ -28,7 +28,7 @@ let
     any isString concatMapStringsSep length foldl' fix zipLists toJSON init
     elem isAttrs mapAttrs isList imap optionalAttrs concatStringsSep
     hasAttrByPath getAttrFromPath setAttrByPath splitString optionalString flip
-    seq trim concatMapAttrsStringSep id isFunction readFile hasInfix
+    seq trim concatMapAttrsStringSep isFunction readFile hasInfix hasAttr
     ;
   inherit (lib.generators) toPretty;
   inherit (lib.strings) escapeNixIdentifier;
@@ -52,20 +52,33 @@ let
   pathMatches = path: pattern:
     length path == length pattern &&
     foldl' (acc: { fst, snd }: snd == null || fst == snd) true (zipLists path pattern);
-  traceUsage = (f: f null null) (fix (cont': parent: at: args@{ label, path }: arg:
+  cleanForJSON = arg:
+    if isAttrs arg then mapAttrs (_: cleanForJSON) arg
+    else if isList arg then map cleanForJSON arg
+    else if builtins.isFunction arg then "<function>"
+    else arg;
+  toJSON' = arg: toJSON (cleanForJSON arg);
+  traceUsage = (f: f null null) (fix (cont': parent: at: info@{ label, path, args }: arg:
     let
       isDerivation = x: x ? outPath && x ? drvPath;
-      inDerivation = isDerivation parent;
-      cont = at: cont' arg at (args // { path = path ++ [ at ]; });
-      trace = p: x: builtins.trace "${marker}${toJSON [label (toPathString p) x]}" arg;
+      inDerivation = isDerivation parent && !args.configJson or false;
+      cont = at: cont' arg at (info // { path = path ++ [ at ]; });
+      trace = p: x:
+        let
+          result =
+            if args.configJson or false
+            then [ p x ]
+            else [ label (toPathString p) (toPretty { } x) ];
+        in
+        builtins.trace "${marker}${toJSON' result}" arg;
     in
     # FIXME probably want to move the non-trace logic into python
     if any (pathMatches path) skipPatterns then arg
     else if inDerivation && at == "outPath" then trace (init path) "<derivation ${arg}>"
     else if inDerivation && elem at skipDerivationAttrs then arg
     else if isAttrs arg then mapAttrs cont arg
-    else if isList arg then imap cont arg
-    else trace path (toPretty { } arg)
+    else if isList arg then imap (i: cont (i - 1)) arg
+    else trace path arg
   ));
   tracedLib = lib: lib.extend (final: prev: {
     traceConfigUsage = config:
@@ -86,7 +99,7 @@ let
     let
       configuration = args.${label};
       mkModule = path: {
-        _module.args._traceConfigUsage = { inherit label path; };
+        _module.args._traceConfigUsage = { inherit label path args; };
         _module.args.check = false;
       };
       mkNested = path: f: optionalAttrs
@@ -114,7 +127,7 @@ let
             ${indent "    " outputsStr};
         }
       '';
-      nativeBuildInputs = [ nix ];
+      nativeBuildInputs = [ nix.out ];
       passAsFile = [ "flakeNix" ];
     }
     ''
@@ -122,7 +135,6 @@ let
       mkdir $out
       cd $out
       cp $flakeNixPath flake.nix
-      cat flake.nix
       nix --extra-experimental-features 'nix-command flakes' flake lock
     '';
   tryEvalOutput = cfg: config:
@@ -146,9 +158,7 @@ let
     , new
     , oldOutput
     , newOutput
-    , eval ? null
-    , oldModule ? null
-    , newModule ? null
+    , ...
     }@args:
     let
       setOutputString = ref: out: indent "    " /* nix */ ''
@@ -156,31 +166,29 @@ let
           ${ref}.outputs.packages.${system}.${out} or
           ${ref}.outputs.legacyPackages.${system}.${out};
       '';
-      optionalRunArg = name: f: optionalString (args.${name} or null != null)
+      optionalRunArg = name: f: optionalString (hasAttr name args)
         "${name} = ${if isFunction f then f args.${name} else f};";
+      passedArgs = [ "oldModule" "newModule" "configJson" ];
     in
     buildFlake (mapAttrs (_: clearSubmodules) { inherit configdiff old new; }) /* nix */ ''
       {
         traced = configdiff.packages.${system}.${configdiffFlakeAttr}.run {
           ${setOutputString "old" oldOutput}
           ${setOutputString "new" newOutput}
-          ${optionalRunArg "oldModule" id}
-          ${optionalRunArg "newModule" id}
-          ${optionalRunArg "eval" "_: c: c.${eval}"}
+          ${indent "    " (concatMapStringsSep "\n" (x: optionalRunArg x (toPretty {})) passedArgs)}
+          ${optionalRunArg "eval" (e: "_: c: c.${e}")}
         };
       }
     '';
-  run = { old, new, eval ? tryEvalOutput, ... }@args: foldl' (flip seq) "" [
-    (eval old (traceConfig args "old"))
+  run = { old, new, configJson ? false, eval ? tryEvalOutput, ... }@args: foldl' (flip seq) "" [
+    (if configJson then null else eval old (traceConfig args "old"))
     (eval new (traceConfig args "new"))
   ];
   runImpure =
     { type
     , label
     , path
-    , eval ? null
-    , oldModule ? null
-    , newModule ? null
+    , ...
     }@args:
     let
       configuration = {
@@ -197,9 +205,9 @@ let
       }.${type};
       traced = traceConfig (args // { ${label} = configuration; }) label;
       result =
-        if eval == null
-        then tryEvalOutput configuration traced
-        else getAttrFromPath (splitString "." eval) traced;
+        if args ? eval
+        then getAttrFromPath (splitString "." args.eval) traced
+        else tryEvalOutput configuration traced;
     in
     seq result "";
 in

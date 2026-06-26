@@ -21,7 +21,7 @@
           default = configdiff;
           ci-env = pkgs.buildEnv {
             name = "ci-env";
-            paths = [ configdiff pkgs.ripgrep pkgs.ansifilter ];
+            paths = [ configdiff pkgs.ripgrep pkgs.ansifilter pkgs.jq ];
           };
         });
 
