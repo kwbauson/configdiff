@@ -168,6 +168,7 @@ let
       '';
       optionalRunArg = name: f: optionalString (hasAttr name args)
         "${name} = ${if isFunction f then f args.${name} else f};";
+      stringArg = x: if isString x then x else toPretty { } x;
       passedArgs = [ "oldModule" "newModule" "configJson" ];
     in
     buildFlake (mapAttrs (_: clearSubmodules) { inherit configdiff old new; }) /* nix */ ''
@@ -175,7 +176,7 @@ let
         traced = configdiff.packages.${system}.${configdiffFlakeAttr}.run {
           ${setOutputString "old" oldOutput}
           ${setOutputString "new" newOutput}
-          ${indent "    " (concatMapStringsSep "\n" (x: optionalRunArg x (toPretty {})) passedArgs)}
+          ${indent "    " (concatMapStringsSep "\n" (x: optionalRunArg x stringArg) passedArgs)}
           ${optionalRunArg "eval" (e: "_: c: c.${e}")}
         };
       }
