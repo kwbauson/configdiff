@@ -34,7 +34,8 @@ jobs:
           - impure: home-manager/home.nix --new-module '{ programs.git.enable = true; }'
             expect: xdg.configFile."git/config".enable = true
 
-          - run: nix run . .#nixosConfigurations.{base,hello}
+          - run: configdiff .#nixosConfigurations.{base,hello}
+          - run: configdiff --config-json .#nixosConfigurations.base | jq .services.openssh.enable
           - run: nix run github:kwbauson/configdiff github:kwbauson/configdiff?dir=test#nixosConfigurations.{base,postgresql}
 
     name: ${{ matrix.flake || matrix.impure || matrix.run }}${{ matrix.os && format(' ({0})', matrix.os) || '' }}
@@ -42,12 +43,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: nixbuild/nix-quick-install-action@v35
-      - if: ${{ !matrix.run }}
-        run: |
+      - run: |
           nix build .#ci-env
           echo ./result/bin >> $GITHUB_PATH
-          nix flake archive ./test
-          echo NIX_PATH="$(nix eval --raw ./test#NIX_PATH)" >> $GITHUB_ENV
+          ${{ matrix.impure && 'echo NIX_PATH="$(nix eval --raw ./test#NIX_PATH)" >> $GITHUB_ENV' }}
       - if: ${{ !matrix.run }}
         run: configdiff --dump dump.txt ${{ matrix.flake && '.?dir=test#' || 'test/' }}${{ matrix.flake || matrix.impure }}
       - if: ${{ !matrix.run }}

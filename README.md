@@ -31,6 +31,8 @@ examples:
 
     configdiff {/run/current-system,/etc/nixos}/configuration.nix
     configdiff /etc/nixos/configuration.nix --new-include nixpkgs=https://channels.nixos.org/nixos-unstable-small/nixexprs.tar.xz
+
+    configdiff --config-json flake#nixosConfigurations.machine | jless
 ```
 
 As long as you're using flakes, you can run this directly on your
