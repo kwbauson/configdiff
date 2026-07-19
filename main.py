@@ -195,6 +195,7 @@ def run_nix_str(*cmdline):
 
 
 def get_flake_path(ref):
+    run_nix_str("nix", "flake", "archive", ref)
     data = json.loads(run_nix_str("nix", "flake", "metadata", "--json", ref))
     if "dir" in data["resolved"]:
         return os.path.join(data["path"], data["resolved"]["dir"])
